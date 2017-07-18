@@ -1,3 +1,82 @@
+" restore {{{1
+
+fu! mysession#restore(file) abort
+    " Prevent `:MSR` from loading a session if we execute it twice by accident:
+    "
+    "     :MSR  ✔
+    "     :MSR  ✘
+    "
+    " It shouldn't reload any session unless no session is being tracked, or we
+    " give it an explicit argument (filepath).
+
+    if      ( !empty(get(g:, 'my_session', '')) && empty(a:file)           )
+       \ || (  exists('g:my_session')           && g:my_session ==# a:file )
+       " │
+       " └─ Add an extra guard. It shouldn't reload a session if one is being tracked,
+       "    and we ask to reload the same.
+       "
+       " TODO:
+       "
+       "    The final / total condition should be:
+       "
+       "            :MSR shouldn't load a session unless no session is being tracked,
+       "            or we give it an explicit path which is different than the one of
+       "            the file of the current tracked session
+       "
+       "    Rewrite our comments relative to the condition, to reflect that:
+       "    summarize them, make them more readable.
+       "
+       "    TODO:
+       "    I don't know exactly if `a:file` and `g:my_session` are relative
+       "    or absolute paths. `a:file` could be either, it depends on what
+       "    the user typed after `:MSR`. For, `g:my_session`, I really don't
+       "    know. I suspect it can be both.
+       "    We need to normalize both of them (absolute path), so that the
+       "    comparison:
+       "            g:my_session ==# a:file
+       "
+       "    … is reliable.
+        return
+    endif
+
+    " Every custom function that we invoke in any autocmd (vimrc, other plugin)
+    " could cause an issue while we restore a session with `:so`.
+    " For an example, have a look at `s:dnb_clean()` in vimrc.
+    "
+    " `:MSR` invokes this function to workaround this issue.
+    " It restores the session, while all autocmds are disabled, THEN
+    " it emits the `BufRead` event in all buffers, to execute the autocmds
+    " associated to filetype detection.
+
+    exe 'noautocmd so '
+        \ . (!empty(a:file) ? fnameescape(a:file) : '~/.vim/session/Session.vim')
+        \ | doautoall filetypedetect bufread
+        "             │
+        "             └─ $VIMRUNTIME/filetype.vim
+
+    " FIXME:
+    " Is the `BufRead` event inside the `filetypedetect` augroup enough?
+    " Are there autocmds which won't be fired, but should?
+    " It could happen.
+    "
+    " When we save a session, containing one of our folded markdown notes,
+    " `:mksession` saves the state of the folds (open/closed).
+    " When we restore the session, Vim throws the error:
+    "         E490: No fold found
+    "
+    " Probably because at the time they are loaded, they don't have the
+    " 'markdown' filetype yet. Our custom ftdetect autocmd hasn't fired yet.
+    " And so, there're no folds. Confirmed by the fact that there're no errors
+    " if we do `:sav mynotes /tmp/mynotes.md`, then quit with `mynotes.md`
+    " displayed instead of `mynotes`.
+    "
+    " Conclusion:
+    " If the state of our buffers, at the time they they are saved, is different
+    " from the one they are in when we restore them, there can be errors.
+endfu
+
+" handle_session_file {{{1
+
 " exists('g:my_session')    →    session = g:my_session
 "
 " g:my_session    + pas de bang    + pas de fichier de session lisible
@@ -8,7 +87,7 @@ fu! mysession#handle_session_file(bang, file) abort
     let session = get(g:, 'my_session', v:this_session)
 
     try
-        "  ┌ :MS! was invoked
+        "  ┌ :MSR! was invoked
         "  │         ┌ it didn't receive any file as argument
         "  │         │                ┌ there's a readable session file
         "  │         │                │
@@ -26,7 +105,7 @@ fu! mysession#handle_session_file(bang, file) abort
 
             return ''
 
-        "      ┌─ :MS didn't receive any file as argument
+        "      ┌─ :MSR didn't receive any file as argument
         "      │                ┌─ the current session is being tracked
         "      │                │
         elseif empty(a:file) && exists('g:my_session')
@@ -34,7 +113,7 @@ fu! mysession#handle_session_file(bang, file) abort
             unlet g:my_session
             return ''
 
-        "      ┌─ :MS was invoked without an argument
+        "      ┌─ :MSR was invoked without an argument
         "      │                ┌─ a session has been loaded or written
         "      │                │                  ┌─ it's not in the `/tmp` directory
         "      │                │                  │
@@ -45,7 +124,7 @@ fu! mysession#handle_session_file(bang, file) abort
 
             let file = session
 
-        "     :MS was invoked without an argument
+        "     :MSR was invoked without an argument
         "     no session is being tracked         `g:my_session` doesn't exist
         "     no session has been loaded/saved    `v:this_session` is empty
         "
@@ -59,7 +138,7 @@ fu! mysession#handle_session_file(bang, file) abort
             endif
             let file = $HOME.'/.vim/session/Session.vim'
 
-        " :MS was invoked with an argument, and it's a directory.
+        " :MSR was invoked with an argument, and it's a directory.
         elseif isdirectory(a:file)
             " We need the full path to `a:file` so we call `fnamemodify()`.
             " But the output of the latter adds a slash at the end of the path.
@@ -69,7 +148,7 @@ fu! mysession#handle_session_file(bang, file) abort
             let file = substitute(fnamemodify(a:file, ':p'), '/$', '', '')
                      \ .'/Session.vim'
 
-        " :MS was invoked with an argument, and it's a file.
+        " :MSR was invoked with an argument, and it's a file.
         else
             let file = fnamemodify(a:file, ':p')
         endif

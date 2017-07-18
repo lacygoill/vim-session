@@ -40,7 +40,7 @@
 
 " Usage {{{1
 
-"     :MS file
+"     :MSV file
 "
 " Invoke `:mksession` on `file`.
 "
@@ -48,27 +48,32 @@
 " or `VimLeavePre` is fired. If `file` exists, it will be overwritten only
 " if its contents looks like the one of a session file.
 "
-"     :MS dir
+"     :MSV dir
 "
-" Invoke `:MS` on `dir/Session.vim`.
+" Invoke `:MSV` on `dir/Session.vim`.
 "
-"     :MS
+"     :MSV
 "
 " If session tracking is already in progress, pause it.
 " Otherwise, resume tracking or create a new session in the current directory.
 "
-"     :MS!
+"     :MSV!
 "
-" Same as `:MS`, except that if tracking is in progress, `:MS` not only pauses
+" Same as `:MSV`, except that if tracking is in progress, `:MSV` not only pauses
 " tracking, but it also removes the session file.
 "
-" Loading a session created with `:MS` automatically resumes updates to that file.
+" Loading a session created with `:MSV` automatically resumes updates to that file.
 
 " interface {{{1
 
-"                                       ┌─ My Session
-"                                       │
-com! -bar -bang -complete=file -nargs=? MS exe mysession#handle_session_file(<bang>0, <q-args>)
+"                                        ┌ My Session
+"                                       ┌┤
+"                                       ││┌─ saVe
+"                                       │││
+com! -bar -bang -complete=file -nargs=? MSV exe mysession#handle_session_file(<bang>0, <q-args>)
+com! -bar -bang -complete=file -nargs=? MSR call mysession#restore(<q-args>)
+"                                         │
+"                                         └─ Restore
 
 " autocmd {{{1
 
@@ -82,9 +87,9 @@ com! -bar -bang -complete=file -nargs=? MS exe mysession#handle_session_file(<ba
 "
 " We need the autocmd to be in this file, inside the `plugin/` directory.
 " Otherwise, if we move it inside `autoload`, the plugin wouldn't resume tracking
-" a restored session until `:MS` is invoked. It would give this:
+" a restored session until `:MSV` is invoked. It would give this:
 "
-"         :MS …
+"         :MSV …
 "         → call persist()
 "         → source autoload/…
 "         → install autocmd
@@ -104,7 +109,7 @@ augroup my_session
     "  └─ We don't want the session to be saved only when we quit Vim,
     "     because Vim could exit abnormally.
     "     Tpope uses `BufEnter`, but `BufWinEnter` is much less frequent,
-    "     and, I hope, should be enough.
+    "     and, hopefully, should be enough.
     "
     "     However:
     "     `BufWinEnter` is neither fired for `:split` without arguments,
@@ -142,13 +147,17 @@ fu! mysession#persist() abort
     " So, `g:SessionLoad` exists temporarily while a session is loading.
     " For more info: :h SessionLoad-variable
     "
-    " If a session is loading, we don't want `persist()` to force the creation
-    " of a session file (`:mksession! …`). It could overwrite the session file
-    " that Vim is currently using to restore a session, just after the user has
-    " invoked `:mksession|MS ~/.vim/session/Session.vim`.
+    " Suppose we source a session file:
     "
-    " So, we don't do anything.
+    "       :so my_session_file
+    "
+    " During the restoration process, `BufWinEnter` will be emitted several
+    " times. Every time, `persist()` will be invoked and try to update the
+    " session file. This will overwrite the latter, while it's being used to
+    " restore the session. So, we don't do anything.
+    "
     " Our session file will be updated next time (`BufWinEnter`, `VimLeavePre`).
+
     if exists('g:SessionLoad')
         return ''
     endif
@@ -252,3 +261,4 @@ fu! My_session_status() abort
     " … but using `get()` may be a good idea, in case `state` gets a weird
     " value when sth goes wrong.
 endfu
+
