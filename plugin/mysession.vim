@@ -2,6 +2,14 @@
 " Integrate this:
 "           https://github.com/dhruvasagar/vim-prosession
 
+" FIXME:
+" doesn't restore syntax highlighting
+"
+"         augroup my_session_restore
+"             au!
+"             au VimEnter * nested if filereadable(expand('~/.vim/session/Session.vim')) | MSR | endif
+"         augroup END
+
 " IFF {{{1
 "
 " NOTE:

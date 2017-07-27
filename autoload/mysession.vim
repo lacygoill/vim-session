@@ -48,9 +48,19 @@ fu! mysession#restore(file) abort
     " it emits the `BufRead` event in all buffers, to execute the autocmds
     " associated to filetype detection.
 
-    exe 'noautocmd so '
+    " FIXME:
+    "
+    "  ┌─ E490: No fold found
+    "  │  happens when one of our buffers is a markdown note, without a proper extension `.md`
+    "  │
+    "  │  I'm not sure the pb is the filetype. Even our note buffer is
+    "  │  restored and the filetype properly detected, sometimes (always?) we
+    "  │  still don't have any folds. How does Vim apply folding?
+    "  │  What prevents Vim from folding a buffer initially? The wrong filetype?
+    "  │
+    sil! exe 'noautocmd so '
         \ . (!empty(a:file) ? fnameescape(a:file) : '~/.vim/session/Session.vim')
-        \ | doautoall filetypedetect bufread
+        \ | doautoall filetypedetect BufRead
         "             │
         "             └─ $VIMRUNTIME/filetype.vim
 
