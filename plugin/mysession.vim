@@ -2,13 +2,15 @@
 " Integrate this:
 "           https://github.com/dhruvasagar/vim-prosession
 
-" FIXME:
-" doesn't restore syntax highlighting
-"
-"         augroup my_session_restore
-"             au!
-"             au VimEnter * nested if filereadable(expand('~/.vim/session/Session.vim')) | MSR | endif
-"         augroup END
+augroup my_session_restore
+    au!
+    " FIXME:
+    " prevent `:MSR` from restoring a session in a 2nd Vim instance
+    " au VimEnter * nested MSR
+    "             │
+    "             └─ necessary to source ftplugins (trigger autocmds
+    "             listening to bufread event?)
+augroup END
 
 " IFF {{{1
 "
