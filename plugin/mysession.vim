@@ -4,16 +4,14 @@
 
 augroup my_session_restore
     au!
-    " FIXME:
-    " prevent `:MSR` from restoring a session in a 2nd Vim instance
-    " au VimEnter * nested MSR
+    au VimEnter * nested MSR
     "             │
-    "             └─ necessary to source ftplugins (trigger autocmds
-    "             listening to bufread event?)
+    "             └─ necessary to source ftplugins
+    "                (trigger autocmds listening to bufread event?)
 augroup END
 
 " IFF {{{1
-"
+
 " NOTE:
 "
 "                      ┌ B
@@ -81,7 +79,7 @@ augroup END
 "                                       ││┌─ saVe
 "                                       │││
 com! -bar -bang -complete=file -nargs=? MSV exe mysession#handle_session_file(<bang>0, <q-args>)
-com! -bar -bang -complete=file -nargs=? MSR call mysession#restore(<q-args>)
+com! -bar       -complete=file -nargs=? MSR call mysession#restore(<q-args>)
 "                                         │
 "                                         └─ Restore
 
@@ -204,6 +202,9 @@ fu! mysession#persist() abort
             " So, we get rid of `g:my_session`. This way, we have a single
             " error. No repetition.
             unlet! g:my_session
+            " TODO:
+            " Should we empty `v:this_session`?
+            let v:this_session = ''
 
             " If sth goes wrong, we want to be informed.
             " Update all status lines, to remove the `[∞]` item, and let us

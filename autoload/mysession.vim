@@ -1,16 +1,14 @@
-" handle_session_file {{{1
-
-" exists('g:my_session')    →    session = g:my_session
-"
-" g:my_session    + pas de bang    + pas de fichier de session lisible
-" g:my_session    + bang           + pas de fichier de session lisible
-"
-" g:my_session    + pas de bang    + fichier de session lisible
-fu! mysession#handle_session_file(bang, file) abort
+fu! mysession#handle_session_file(bang, file) abort " {{{1
+    " exists('g:my_session')    →    session = g:my_session
+    "
+    " g:my_session    + pas de bang    + pas de fichier de session lisible
+    " g:my_session    + bang           + pas de fichier de session lisible
+    "
+    " g:my_session    + pas de bang    + fichier de session lisible
     let session = get(g:, 'my_session', v:this_session)
 
     try
-        "  ┌ :MSR! was invoked
+        "  ┌ :MSV! was invoked
         "  │         ┌ it didn't receive any file as argument
         "  │         │                ┌ there's a readable session file
         "  │         │                │
@@ -26,17 +24,26 @@ fu! mysession#handle_session_file(bang, file) abort
             " disable tracking of the session
             unlet! g:my_session
 
+            " TODO:
+            " Should we empty `v:this_session`?
+            " If we don't, then after deleting a session file (:MSV!), the next time we
+            " try to save a session (:MSV), the plugin will use the file stored in
+            " `v:this_session` instead of the default path `~/.vim/session/Session.vim`.
+            " Do we want that?
+            let v:this_session = ''
+
             return ''
 
-        "      ┌─ :MSR didn't receive any file as argument
+        "      ┌─ :MSV didn't receive any file as argument
         "      │                ┌─ the current session is being tracked
         "      │                │
         elseif empty(a:file) && exists('g:my_session')
             echo '[MS] Pausing session in '.fnamemodify(session, ':~:.')
             unlet g:my_session
+            " don't empty `v:this_session`: we need it if we resume later
             return ''
 
-        "      ┌─ :MSR was invoked without an argument
+        "      ┌─ :MSV was invoked without an argument
         "      │                ┌─ a session has been loaded or written
         "      │                │                  ┌─ it's not in the `/tmp` directory
         "      │                │                  │
@@ -47,7 +54,7 @@ fu! mysession#handle_session_file(bang, file) abort
 
             let file = session
 
-        "     :MSR was invoked without an argument
+        "     :MSV was invoked without an argument
         "     no session is being tracked         `g:my_session` doesn't exist
         "     no session has been loaded/saved    `v:this_session` is empty
         "
@@ -61,17 +68,11 @@ fu! mysession#handle_session_file(bang, file) abort
             endif
             let file = $HOME.'/.vim/session/Session.vim'
 
-        " :MSR was invoked with an argument, and it's a directory.
+        " :MSV was invoked with an argument, and it's a directory.
         elseif isdirectory(a:file)
-            " We need the full path to `a:file` so we call `fnamemodify()`.
-            " But the output of the latter adds a slash at the end of the path.
-            " We want to get rid of it, because we're going to add a path
-            " separator just after (`/Session.vim`).
-            " So, we also call `substitute()`.
-            let file = substitute(fnamemodify(a:file, ':p'), '/$', '', '')
-                     \ .'/Session.vim'
+            let file = fnamemodify(a:file, ':p').'Session.vim'
 
-        " :MSR was invoked with an argument, and it's a file.
+        " :MSV was invoked with an argument, and it's a file.
         else
             let file = fnamemodify(a:file, ':p')
         endif
@@ -92,6 +93,9 @@ fu! mysession#handle_session_file(bang, file) abort
             " Is this line necessary?
             " `persist()` should have just created a session file with `:mksession!`.
             " So, `v:this_session` should have been automatically updated by Vim.
+            " Update:
+            " Read the code of `persist()`; it may fail to create a session
+            " file.
             let v:this_session = file
             return ''
         else
@@ -102,23 +106,27 @@ fu! mysession#handle_session_file(bang, file) abort
         redrawstatus!
     endtry
 endfu
-" restore {{{1
 
-fu! mysession#restore(file) abort
-    " Prevent `:MSR` from loading a session if we execute it twice by accident:
+fu! mysession#restore(file) abort " {{{1
+    let file = !empty(a:file)
+             \   ? fnamemodify(a:file, ':p')
+             \   : expand('~/.vim/session/Session.vim')
+
+    " Prevent `:MSR` from loading a session if:
     "
-    "     :MSR  ✔
-    "     :MSR  ✘
+    "         1. the session file is NOT readable
+    "         2. we execute `:MSR` twice by accident:
+    "
+    "             :MSR  ✔
+    "             :MSR  ✘
     "
     " It shouldn't reload any session unless no session is being tracked, or we
     " give it an explicit argument (filepath).
 
-    if      ( !empty(get(g:, 'my_session', '')) && empty(a:file)           )
-       \ || (  exists('g:my_session')           && g:my_session ==# a:file )
-       " │
-       " └─ Add an extra guard. It shouldn't reload a session if one is being tracked,
-       "    and we ask to reload the same.
-       "
+    if !filereadable(file)
+    \ || (exists('g:my_session') && ( empty(file) || file ==# g:my_session ))
+    \ || s:session_loaded_in_other_instance(file)
+
        " TODO:
        "
        "    The final / total condition should be:
@@ -143,7 +151,7 @@ fu! mysession#restore(file) abort
         return
     endif
 
-    " NOTE: possible issue with other autocmds"{{{
+    " NOTE: possible issue with other autocmds {{{
     "
     " Every custom function that we invoke in any autocmd (vimrc, other plugin)
     " may interfere with the restoration process.
@@ -173,15 +181,15 @@ fu! mysession#restore(file) abort
     "
     " Solution:
     " In an autocmd which may interfere with the restoration process, test
-    " whether `g:SessionLoad` exists. This variable only exists during
-    " a session is being restored:
+    " whether `g:SessionLoad` exists. This variable only exists while a session
+    " is being restored:
     "
     "         if exists('g:SessionLoad')
-    "             return ''
+    "             return
     "         endif
 "}}}
 
-    exe 'so '.(!empty(a:file) ? fnameescape(a:file) : '~/.vim/session/Session.vim')
+    exe 'so '.fnameescape(file)
 
     " The next commands (in particular `:tabdo windo`) may leave us in a new window.
     " We need to save our current position, to restore it later.
@@ -218,37 +226,45 @@ fu! mysession#restore(file) abort
     call win_gotoid(cur_winid)
 endfu
 
-" restore_help_settings {{{1
+fu! s:restore_help_settings() abort "{{{1
+    " FIXME:
+    " Isn't there a simpler solution?
+    " Vim doesn't rely on an autocmd to restore the settings of a help buffer.
+    " Confirmed by typing:         au * <buffer=42>
+    "
+    " If we reload a help buffer, without installing an autocmd to restore the
+    " filetype, the latter gets back to `text`.
+    " If we re-open the file with the right `:h tag`, it opens a new window,
+    " with the same `text` file. From there, if we reload the file, it gets
+    " back to `help` in both windows. It happens with and without the previous
+    " command. Here are the events fired by `:h`:
+    "
+    "       BufUnload
+    "       BufReadPre
+    "       Syntax
+    "       FileType
+    "       BufRead
+    "       BufReadPost
+    "       Syntax
+    "       FileType
+    "       BufEnter
+    "       BufWinEnter
+    "       TextChanged
 
-" FIXME:
-" Isn't there a simpler solution?
-" Vim doesn't rely on an autocmd to restore the settings of a help buffer.
-" Confirmed by typing:         au * <buffer=42>
-"
-" If we reload a help buffer, without installing an autocmd to restore the
-" filetype, the latter gets back to `text`.
-" If we re-open the file with the right `:h tag`, it opens a new window,
-" with the same `text` file. From there, if we reload the file, it gets
-" back to `help` in both windows. It happens with and without the previous
-" command. Here are the events fired by `:h`:
-"
-"       BufUnload
-"       BufReadPre
-"       Syntax
-"       FileType
-"       BufRead
-"       BufReadPost
-"       Syntax
-"       FileType
-"       BufEnter
-"       BufWinEnter
-"       TextChanged
-
-fu! s:restore_help_settings() abort
     setl ft=help nobuflisted noma ro
 
     augroup restore_help_settings
         au! * <buffer>
         au BufRead <buffer> setl ft=help nobuflisted noma ro
     augroup END
+endfu
+
+fu! s:session_loaded_in_other_instance(file) abort " {{{1
+    let some_lines          = readfile(a:file, '', 20)
+    let first_buffer        = matchstr(filter(some_lines, 'v:val =~# "^badd"')[0], '^badd +\d\+ \zs.*')
+    let first_file          = fnamemodify(first_buffer, ':p')
+    let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
+    if !empty(glob(swapfile_first_file, 1))
+        return 1
+    endif
 endfu
