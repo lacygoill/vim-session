@@ -1,4 +1,4 @@
-fu! mysession#handle_session_file(bang, file) abort " {{{1
+fu! mysession#manual_session_file(bang, file) abort " {{{1
     " exists('g:my_session')    →    session = g:my_session
     "
     " g:my_session    + pas de bang    + pas de fichier de session lisible
@@ -8,7 +8,7 @@ fu! mysession#handle_session_file(bang, file) abort " {{{1
     let session = get(g:, 'my_session', v:this_session)
 
     try
-        "  ┌ :MSV! was invoked
+        "  ┌ :SessionSave! was invoked
         "  │         ┌ it didn't receive any file as argument
         "  │         │                ┌ there's a readable session file
         "  │         │                │
@@ -24,17 +24,16 @@ fu! mysession#handle_session_file(bang, file) abort " {{{1
             " disable tracking of the session
             unlet! g:my_session
 
-            " TODO:
-            " Should we empty `v:this_session`?
-            " If we don't, then after deleting a session file (:MSV!), the next time we
-            " try to save a session (:MSV), the plugin will use the file stored in
-            " `v:this_session` instead of the default path `~/.vim/session/Session.vim`.
-            " Do we want that?
+            " Why empty `v:this_session`?
+            " If we don't, then after deleting a session file (:SessionSave!),
+            " the next time we try to save a session (:SessionSave), the function
+            " will use the file whose path is in `v:this_session` instead of:
+            "         ~/.vim/session/Session.vim
             let v:this_session = ''
 
             return ''
 
-        "      ┌─ :MSV didn't receive any file as argument
+        "      ┌─ :SessionSave didn't receive any file as argument
         "      │                ┌─ the current session is being tracked
         "      │                │
         elseif empty(a:file) && exists('g:my_session')
@@ -43,7 +42,7 @@ fu! mysession#handle_session_file(bang, file) abort " {{{1
             " don't empty `v:this_session`: we need it if we resume later
             return ''
 
-        "      ┌─ :MSV was invoked without an argument
+        "      ┌─ :SessionSave was invoked without an argument
         "      │                ┌─ a session has been loaded or written
         "      │                │                  ┌─ it's not in the `/tmp` directory
         "      │                │                  │
@@ -54,25 +53,25 @@ fu! mysession#handle_session_file(bang, file) abort " {{{1
 
             let file = session
 
-        "     :MSV was invoked without an argument
+        "     :SessionSave was invoked without an argument
         "     no session is being tracked         `g:my_session` doesn't exist
         "     no session has been loaded/saved    `v:this_session` is empty
         "
         " We probably want to prepare the tracking of a session.
         " We need a file for it.
-        " We'll use `~/.vim/session/Session.vim`.
+        " We'll use `$CWD/session/Session.vim`.
 
         elseif empty(a:file)
-            if !isdirectory($HOME.'/.vim/session')
-                call mkdir($HOME.'/.vim/session')
+            if !isdirectory(getcwd().'/session')
+                call mkdir(getcwd().'/session')
             endif
-            let file = $HOME.'/.vim/session/Session.vim'
+            let file = getcwd().'/session/Session.vim'
 
-        " :MSV was invoked with an argument, and it's a directory.
+        " :SessionSave dir/
         elseif isdirectory(a:file)
             let file = fnamemodify(a:file, ':p').'Session.vim'
 
-        " :MSV was invoked with an argument, and it's a file.
+        " :SessionSave file
         else
             let file = fnamemodify(a:file, ':p')
         endif
@@ -87,19 +86,20 @@ fu! mysession#handle_session_file(bang, file) abort " {{{1
 
         let g:my_session = file
 
-        let msg = mysession#persist()
-        if empty(msg)
+        let cmd = mysession#auto_session_file()
+        if empty(cmd)
             echo '[MS] Tracking session in '.fnamemodify(file, ':~:.')
             " Is this line necessary?
-            " `persist()` should have just created a session file with `:mksession!`.
-            " So, `v:this_session` should have been automatically updated by Vim.
+            " `auto_session_file()` should have just created a session file
+            " with `:mksession!`. So, `v:this_session` should have been automatically
+            " updated by Vim.
             " Update:
-            " Read the code of `persist()`; it may fail to create a session
-            " file.
+            " Read the code of `auto_session_file()`; it may fail to create
+            " a session file.
             let v:this_session = file
             return ''
         else
-            return msg
+            return cmd
         endif
 
     finally
@@ -110,30 +110,32 @@ endfu
 fu! mysession#restore(file) abort " {{{1
     let file = !empty(a:file)
              \   ? fnamemodify(a:file, ':p')
-             \   : expand('~/.vim/session/Session.vim')
+             \   : getcwd().'/session/Session.vim'
+             " \   : expand('~/.vim/session/Session.vim')
 
-    " Prevent `:MSR` from loading a session if:
+    " Prevent `:SessionRestore` from loading a session if:
     "
     "         1. the session file is NOT readable
-    "         2. we execute `:MSR` twice by accident:
+    "         2. we execute `:SessionRestore` twice by accident:
     "
-    "             :MSR  ✔
-    "             :MSR  ✘
+    "             :SessionRestore  ✔
+    "             :SessionRestore  ✘
     "
     " It shouldn't reload any session unless no session is being tracked, or we
     " give it an explicit argument (filepath).
 
     if !filereadable(file)
-    \ || (exists('g:my_session') && ( empty(file) || file ==# g:my_session ))
     \ || s:session_loaded_in_other_instance(file)
+    \ || (exists('g:my_session') && ( empty(file) || file ==# g:my_session ))
 
        " TODO:
        "
        "    The final / total condition should be:
        "
-       "            :MSR shouldn't load a session unless no session is being tracked,
-       "            or we give it an explicit path which is different than the one of
-       "            the file of the current tracked session
+       "            :SessionRestore shouldn't load a session unless no session
+       "            is being tracked, or we give it an explicit path which is
+       "            different than the one of the file of the current tracked
+       "            session
        "
        "    Rewrite our comments relative to the condition, to reflect that:
        "    summarize them, make them more readable.
@@ -141,8 +143,8 @@ fu! mysession#restore(file) abort " {{{1
        "    TODO:
        "    I don't know exactly if `a:file` and `g:my_session` are relative
        "    or absolute paths. `a:file` could be either, it depends on what
-       "    the user typed after `:MSR`. For, `g:my_session`, I really don't
-       "    know. I suspect it can be both.
+       "    the user typed after `:SessionRestore`.
+       "    For, `g:my_session`, I really don't know. I suspect it can be both.
        "    We need to normalize both of them (absolute path), so that the
        "    comparison:
        "            g:my_session ==# a:file
@@ -204,7 +206,7 @@ fu! mysession#restore(file) abort " {{{1
     "       doautoall BufWinEnter
     " ?
     " Because `:doautoall` executes the autocmds in the context of the buffers.
-    " But the purpose of some of our them is to set WINDOW-local options.
+    " But the purpose of some of them is to set WINDOW-local options.
     " They need to be executed in the context of the windows, not the buffers.
     "
     " Watch:
@@ -219,9 +221,15 @@ fu! mysession#restore(file) abort " {{{1
     " └─ iterate over tabpages
 
     " restore syntax highlighting in help files
+
+    " `:bufdo` is executed in the context of the last window of the last tabpage.
+    " Thus, it could replace its buffer with another buffer (the one with the
+    " biggest number).
+    let cur_bufnr = bufnr('%')
     sil! bufdo if expand('%') =~# '^'.$VIMRUNTIME.'/doc/.*\.txt'
             \|     call s:restore_help_settings()
             \| endif
+    exe 'b '.cur_bufnr
 
     call win_gotoid(cur_winid)
 endfu
@@ -251,6 +259,13 @@ fu! s:restore_help_settings() abort "{{{1
     "       BufWinEnter
     "       TextChanged
 
+    " We could do that:
+    "         exe 'h '.matchstr(expand('%'), '.*/doc/\zs.*\.txt')
+    "         exe "norm! \<c-o>"
+    "         e
+    " But for some reason, `:e` doesn't do its part. It should immediately
+    " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
+
     setl ft=help nobuflisted noma ro
 
     augroup restore_help_settings
@@ -260,8 +275,11 @@ fu! s:restore_help_settings() abort "{{{1
 endfu
 
 fu! s:session_loaded_in_other_instance(file) abort " {{{1
-    let some_lines          = readfile(a:file, '', 20)
-    let first_buffer        = matchstr(filter(some_lines, 'v:val =~# "^badd"')[0], '^badd +\d\+ \zs.*')
+    let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
+    if empty(some_buffers)
+        return 0
+    endif
+    let first_buffer        = matchstr(some_buffers[0], '^badd +\d\+ \zs.*')
     let first_file          = fnamemodify(first_buffer, ':p')
     let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
     if !empty(glob(swapfile_first_file, 1))
