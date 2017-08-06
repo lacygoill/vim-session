@@ -54,14 +54,17 @@
 "
 "     :SessionSave
 "
-" If session tracking is already in progress, pause it.
-" Otherwise, resume tracking or create a new session in the current directory.
+" If the tracking of a session is running:  pause it
+" If the tracking of a session is paused:   resume it
+" If no session is being tracked, start tracking the current session in
+" ~/.vim/session/Session.vim
 "
 "
 "     :SessionSave!
 "
-" If session tracking is already in progress, pause it.
-" Otherwise, remove the session file.
+" If no session is being tracked, begin the tracking.
+" If the tracking of a session is running:  cancel it and remove the session
+" file.
 "
 "
 " Loading a session created with `:SessionSave` automatically resumes updates
@@ -69,48 +72,55 @@
 
 " Interface {{{1
 
-" NOTE: Why `exe mysession#manual_session_file()` {{{
+" NOTE: Why `exe mysession#manual_save()` {{{
+" and why `exe mysession#auto_save()`?
 "
-" We could get rid of it. But, it helps to make the code more compact:
-"           if condition1
-"               cmd1
-"               return
-"           elseif condition2
-"               cmd2
-"               return
-"           endif
+" If an error occurs in a function, we'll get an error such as:
 "
-"       vs
+"         Error detected while processing function mysession#auto_save:
+"         line   19:
+"         Vim:E492: Not an editor command:             abcd
 "
-"           if condition1
-"               return 'cmd1'
-"           elseif condition2
-"               return 'cmd2'
-"           endif
+" We want our `:SessionSave` command, and our autocmd, to produce a message
+" similar to a regular Ex command. We don't want to see the detail of the
+" implementation leaking.
 "
-" Every time, you end up repeating `cmd | return`, you should prefer `return 'cmd'`
+" By using `exe function()`, we can get an error message such as:
 "
-" TODO:
-" There's another reason: it separates the routine from its message.
-" To develop by reading carefully:
-"         let cmd = mysession#auto_session_file()
-"         au BufWinEnter,VimLeavePre * exe mysession#auto_session_file()
+"         Error detected while processing BufWinEnter Auto commands for "*":
+"         Vim:E492: Not an editor command:             abcd
+"
+" How does it work?
+" When an error may occur, we capture it and convert it into a string:
+"
+"     try
+"         …
+"     catch
+"         return 'echoerr '.string(v:exception)
+"     endtry
+"
+" We execute this string in the context of `:SessionSave`, or of the autocmd.
+" Basically, the try conditional + `exe function()` is a mechanism which
+" allows us to choose the context in which an error may occur.
+" Note, however, that in this case, it prevents our `:WTF` command from capturing
+" the error, because it will happen outside of a function.
 "
 " "}}}
 
-com! -bar -bang -complete=file -nargs=?  SessionSave     exe mysession#manual_session_file(<bang>0, <q-args>)
+com! -bar -bang -complete=file -nargs=?  SessionSave     exe mysession#manual_save(<bang>0, <q-args>)
 com! -bar       -complete=file -nargs=?  SessionRestore  call mysession#restore(<q-args>)
 
 " Autocmd {{{1
 
 augroup my_session
     au!
+    au StdInReadPost * let s:read_stdin = 1
 
     "                       ┌─ if Vim was started with files to edit, we don't
     "                       │  want their buffers to be immediately lost by
     "                       │  a restored session
     "                       │
-    au VimEnter * nested if !argc() | SessionRestore | endif
+    au VimEnter * nested if !argc() && !get(s:, 'read_stdin', 0) | SessionRestore | endif
     "             │
     "             └─ necessary to source ftplugins
     "                (trigger autocmds listening to bufread event?)
@@ -123,14 +133,14 @@ augroup my_session
     "     2. update the session file frequently, and as long as `g:my_session` exists
     "        IOW, track the session
     "
-    " We need the autocmd to be in this file, inside the `plugin/` directory.
-    " Otherwise, if we move it inside `autoload`, the plugin wouldn't resume
-    " tracking a restored session until `:SessionSave` is invoked.
+    " We need the autocmd to be in `plugin/`.
+    " Otherwise, if we move it inside `autoload/`, it wouldn't resume tracking
+    " a restored session until `:SessionSave` is invoked.
     " It would give this:
     "
     "         :SessionSave …
-    "         → call auto_session_file()
-    "         → source autoload/…
+    "         → call mysession#manual_save()
+    "         → source autoload/mysession.vim
     "         → install autocmd
     "         → resume tracking
     "
@@ -142,23 +152,22 @@ augroup my_session
     "                            │
     "                            │  we need to execute this string
     "                            │
-    au BufWinEnter,VimLeavePre * exe mysession#auto_session_file()
+    au BufWinEnter,VimLeavePre * exe mysession#auto_save()
     "  │
     "  └─ We don't want the session to be saved only when we quit Vim,
     "     because Vim could exit abnormally.
-    "     Tpope uses `BufEnter`, but `BufWinEnter` is much less frequent,
-    "     and, hopefully, should be enough.
     "
-    "     However:
-    "     `BufWinEnter` is neither fired for `:split` without arguments,
-    "     nor for `:split file`, file being already displayed in a window.
+    "     NOTE:
+    "     Contrary to `BufEnter`, `BufWinEnter` is NOT fired for `:split`
+    "     (without arguments), nor for `:split file`, file being already
+    "     displayed in a window.
     "
-    "     Anyway, most of the time, Vim won't quit abnormally, and the last
-    "     saved state of our session will be performed when VimLeavePre is
-    "     fired. So, `VimLeavePre` will have the final say most of the time.
+    "     But most of the time, Vim won't quit abnormally, and the last saved
+    "     state of our session will be performed when VimLeavePre is fired.
+    "     So, `VimLeavePre` will have the final say most of the time.
 augroup END
 
-" auto_session_file {{{1
+" auto_save {{{1
 
 " This function saves the current session, iff `g:my_session` exists.
 " In the session file, it adds the line:
@@ -167,50 +176,42 @@ augroup END
 " … so that the next time we load the session, the plugin knows that it must
 " track it automatically.
 "
-" It needs to be public to be callable from `manual_session_file()`.
-" If we moved the latter here, we could make `auto_session_file()` script-local.
+" It needs to be public to be callable from `manual_save()`.
+" If we moved the latter here, we could make `auto_save()` script-local.
+" We don't, to lazy-load as much code as we can.
 "
-" We can't move `auto_session_file()` in `autoload/`:
-" it would defeat the whole purpose of `autoload/`, because `auto_session_file()`
-" can be called when `VimEnter` is emitted.
+" We can't move `auto_save()` in `autoload/`:
+" it would defeat the whole purpose of `autoload/`, because `auto_save()` can be
+" called when `VimEnter` is fired.
 
-fu! mysession#auto_session_file() abort
-    " When `:mksession` creates a session file, it begins with the line:
-    "
-    "         let SessionLoad = 1
-    "
-    " And ends with:
-    "
-    "         unlet SessionLoad
-    "
-    " So, `g:SessionLoad` exists temporarily while a session is loading.
-    " For more info: :h SessionLoad-variable
-    "
-    " Suppose we source a session file:
-    "
-    "       :so my_session_file
-    "
-    " During the restoration process, `BufWinEnter` will be emitted several
-    " times. Every time, `auto_session_file()` will be invoked and try to
-    " update the session file. This will overwrite the latter, while it's being
-    " used to restore the session. So, we don't do anything.
-    "
-    " Our session file will be updated next time (`BufWinEnter`, `VimLeavePre`).
-
+fu! mysession#auto_save() abort
     if exists('g:SessionLoad')
+        " `g:SessionLoad` exists temporarily while a session is loading.
+        " See: :h SessionLoad-variable
+        "
+        " Suppose we source a session file:
+        "
+        "       :so file
+        "
+        " During the restoration process, `BufWinEnter` would be fired several
+        " times. Every time, the current function would try to update the session
+        " file. This would overwrite the latter, while it's being used to restore
+        " the session. Don't do that.
+        "
+        " Our session file will be updated next time (`BufWinEnter`, `VimLeavePre`).
+
         return ''
     endif
 
-    " our plugin should update a session as soon as this variable exists
+    " update the session  iff / as soon as  this variable exists
     if exists('g:my_session')
         try
-            " create the session file
-            "
             "             ┌─ overwrite any existing file
             "             │
             exe 'mksession! '.fnameescape(g:my_session)
 
-            " `body` is a list whose items are the lines of our session file
+            "   ┌─ lines of our session file
+            "   │
             let body = readfile(g:my_session)
 
             " add the Ex command:
@@ -222,28 +223,22 @@ fu! mysession#auto_session_file() abort
             "         unlet SessionLoad
             "         vim: set ft=vim : (modeline)
             call insert(body, 'let g:my_session = v:this_session', -3)
-
             call writefile(body, g:my_session)
 
         catch
             " If sth goes wrong now, it will probably go wrong next time.
-            " We don't want `auto_session_file()` to go on trying to save a
-            " session, if it can't access `Session.vim` for example.
-            "
-            " So, we get rid of `g:my_session`. This way, we have a single
-            " error. No repetition.
+            " We don't want to go on trying to save a session, if `Session.vim`
+            " isn't writable for example.
             unlet! g:my_session
-            " We empty `v:this_session`, because `:SessionSave` may use its
-            " value to create a new session file, the next time we execute it.
-            let v:this_session = ''
+            " Next time we execute `:SessionSave`, we don't want it to use
+            " `v:this_session` as a filepath. It just failed, so it could fail
+            " again.
+            let v:this_session = ':mksession failed'
 
-            " If sth goes wrong, we want to be informed.
             " Update all status lines, to remove the `[∞]` item, and let us
             " know that the current session is no longer being tracked.
             redrawstatus!
 
-            " Finally, display the error message, so we have at least a clue of
-            " what the problem is.
             return 'echoerr '.string(v:exception)
         endtry
     endif
@@ -296,10 +291,5 @@ fu! My_session_status() abort
     "
     " The returned value is displayed in the statusline.
 
-    return get([ '', '[S]', '[∞]' ], state, '')
-    " We could also write:
-    "         return [ '', '[S]', '[∞]' ][state]
-    "
-    " … but using `get()` may be a good idea, in case `state` gets a weird
-    " value when sth goes wrong.
+    return [ '', '[S]', '[∞]' ][state]
 endfu

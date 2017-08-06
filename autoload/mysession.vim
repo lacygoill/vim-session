@@ -1,11 +1,6 @@
-fu! mysession#manual_session_file(bang, file) abort " {{{1
-    " exists('g:my_session')    →    session = g:my_session
-    "
-    " g:my_session    + pas de bang    + pas de fichier de session lisible
-    " g:my_session    + bang           + pas de fichier de session lisible
-    "
-    " g:my_session    + pas de bang    + fichier de session lisible
+fu! mysession#manual_save(bang, file) abort " {{{1
     let session = get(g:, 'my_session', v:this_session)
+    if session ==# ':mksession failed' | let session = '' | endif
 
     try
         "  ┌ :SessionSave! was invoked
@@ -13,10 +8,10 @@ fu! mysession#manual_session_file(bang, file) abort " {{{1
         "  │         │                ┌ there's a readable session file
         "  │         │                │
         if a:bang && empty(a:file) && filereadable(session)
-            "       reduce path relative to current working directory ┐
-            "                                      don't expand `~` ┐ │
-            "                                                       │ │
-            echo '[MS] Deleting session in '.fnamemodify(session, ':~:.')
+            "  reduce path relative to current working directory ┐
+            "                                 don't expand `~` ┐ │
+            "                                                  │ │
+            echo 'Deleting session in '.fnamemodify(session, ':~:.')
 
             " remove session file
             call delete(session)
@@ -37,7 +32,7 @@ fu! mysession#manual_session_file(bang, file) abort " {{{1
         "      │                ┌─ the current session is being tracked
         "      │                │
         elseif empty(a:file) && exists('g:my_session')
-            echo '[MS] Pausing session in '.fnamemodify(session, ':~:.')
+            echo 'Pausing session in '.fnamemodify(session, ':~:.')
             unlet g:my_session
             " don't empty `v:this_session`: we need it if we resume later
             return ''
@@ -59,13 +54,13 @@ fu! mysession#manual_session_file(bang, file) abort " {{{1
         "
         " We probably want to prepare the tracking of a session.
         " We need a file for it.
-        " We'll use `$CWD/session/Session.vim`.
+        " We'll use `~/.vim/session/Session.vim`.
 
         elseif empty(a:file)
-            if !isdirectory(getcwd().'/session')
-                call mkdir(getcwd().'/session')
+            if !isdirectory($HOME.'/.vim/session')
+                call mkdir($HOME.'/.vim/session')
             endif
-            let file = getcwd().'/session/Session.vim'
+            let file = $HOME.'/.vim/session/Session.vim'
 
         " :SessionSave dir/
         elseif isdirectory(a:file)
@@ -86,17 +81,9 @@ fu! mysession#manual_session_file(bang, file) abort " {{{1
 
         let g:my_session = file
 
-        let cmd = mysession#auto_session_file()
+        let cmd = mysession#auto_save()
         if empty(cmd)
-            echo '[MS] Tracking session in '.fnamemodify(file, ':~:.')
-            " Is this line necessary?
-            " `auto_session_file()` should have just created a session file
-            " with `:mksession!`. So, `v:this_session` should have been automatically
-            " updated by Vim.
-            " Update:
-            " Read the code of `auto_session_file()`; it may fail to create
-            " a session file.
-            let v:this_session = file
+            echo 'Tracking session in '.fnamemodify(file, ':~:.')
             return ''
         else
             return cmd
@@ -110,46 +97,17 @@ endfu
 fu! mysession#restore(file) abort " {{{1
     let file = !empty(a:file)
              \   ? fnamemodify(a:file, ':p')
-             \   : getcwd().'/session/Session.vim'
-             " \   : expand('~/.vim/session/Session.vim')
+             \   : $HOME.'/.vim/session/Session.vim'
 
-    " Prevent `:SessionRestore` from loading a session if:
+    " Don't source the session file if it is:
     "
-    "         1. the session file is NOT readable
-    "         2. we execute `:SessionRestore` twice by accident:
-    "
-    "             :SessionRestore  ✔
-    "             :SessionRestore  ✘
-    "
-    " It shouldn't reload any session unless no session is being tracked, or we
-    " give it an explicit argument (filepath).
+    "         1. NOT readable
+    "         2. already loaded in another Vim instance
+    "         3. already loaded in the current instance
 
     if !filereadable(file)
     \ || s:session_loaded_in_other_instance(file)
-    \ || (exists('g:my_session') && ( empty(file) || file ==# g:my_session ))
-
-       " TODO:
-       "
-       "    The final / total condition should be:
-       "
-       "            :SessionRestore shouldn't load a session unless no session
-       "            is being tracked, or we give it an explicit path which is
-       "            different than the one of the file of the current tracked
-       "            session
-       "
-       "    Rewrite our comments relative to the condition, to reflect that:
-       "    summarize them, make them more readable.
-       "
-       "    TODO:
-       "    I don't know exactly if `a:file` and `g:my_session` are relative
-       "    or absolute paths. `a:file` could be either, it depends on what
-       "    the user typed after `:SessionRestore`.
-       "    For, `g:my_session`, I really don't know. I suspect it can be both.
-       "    We need to normalize both of them (absolute path), so that the
-       "    comparison:
-       "            g:my_session ==# a:file
-       "
-       "    … is reliable.
+    \ || ( exists('g:my_session') && file ==# g:my_session )
         return
     endif
 
@@ -177,7 +135,7 @@ fu! mysession#restore(file) abort " {{{1
     "
     "       `doautoall filetypedetect BufRead` would only affect the file in
     "       which the autocmd calling the current function is installed
-    "           → no syntax highlighting
+    "           → no syntax highlighting everywhere else
     "           → we would have to delay the command with a timer or maybe
     "             a fire-once autocmd
     "
@@ -193,7 +151,7 @@ fu! mysession#restore(file) abort " {{{1
 
     exe 'so '.fnameescape(file)
 
-    " The next commands (in particular `:tabdo windo`) may leave us in a new window.
+    " The next command may leave us in a new window.
     " We need to save our current position, to restore it later.
     let cur_winid = win_getid()
 
@@ -206,7 +164,7 @@ fu! mysession#restore(file) abort " {{{1
     "       doautoall BufWinEnter
     " ?
     " Because `:doautoall` executes the autocmds in the context of the buffers.
-    " But the purpose of some of them is to set WINDOW-local options.
+    " But their purpose is to set WINDOW-local options.
     " They need to be executed in the context of the windows, not the buffers.
     "
     " Watch:
@@ -220,6 +178,8 @@ fu! mysession#restore(file) abort " {{{1
     " │   └─ iterate over windows
     " └─ iterate over tabpages
 
+    call win_gotoid(cur_winid)
+
     " restore syntax highlighting in help files
 
     " `:bufdo` is executed in the context of the last window of the last tabpage.
@@ -230,12 +190,20 @@ fu! mysession#restore(file) abort " {{{1
             \|     call s:restore_help_settings()
             \| endif
     exe 'b '.cur_bufnr
-
-    call win_gotoid(cur_winid)
 endfu
 
 fu! s:restore_help_settings() abort "{{{1
-    " FIXME:
+    " For some reason, Vim doesn't restore some settings in a help buffer,
+    " including the syntax highlighting.
+
+    setl ft=help nobuflisted noma ro
+
+    augroup restore_help_settings
+        au! * <buffer>
+        au BufRead <buffer> setl ft=help nobuflisted noma ro
+    augroup END
+
+    " TODO:
     " Isn't there a simpler solution?
     " Vim doesn't rely on an autocmd to restore the settings of a help buffer.
     " Confirmed by typing:         au * <buffer=42>
@@ -244,34 +212,22 @@ fu! s:restore_help_settings() abort "{{{1
     " filetype, the latter gets back to `text`.
     " If we re-open the file with the right `:h tag`, it opens a new window,
     " with the same `text` file. From there, if we reload the file, it gets
-    " back to `help` in both windows. It happens with and without the previous
-    " command. Here are the events fired by `:h`:
+    " back to `help` in both windows. It happens with and without the 1st
+    " command:
     "
-    "       BufUnload
-    "       BufReadPre
-    "       Syntax
-    "       FileType
-    "       BufRead
-    "       BufReadPost
-    "       Syntax
-    "       FileType
-    "       BufEnter
-    "       BufWinEnter
-    "       TextChanged
+    "         setl ft=help nobuflisted noma ro
+    "
+    " I've tried to hook into all the events fired by `:h`, but none worked.
 
-    " We could do that:
+    " NOTE:
+    " We could also do that:
+    "
     "         exe 'h '.matchstr(expand('%'), '.*/doc/\zs.*\.txt')
     "         exe "norm! \<c-o>"
     "         e
+    "
     " But for some reason, `:e` doesn't do its part. It should immediately
     " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
-
-    setl ft=help nobuflisted noma ro
-
-    augroup restore_help_settings
-        au! * <buffer>
-        au BufRead <buffer> setl ft=help nobuflisted noma ro
-    augroup END
 endfu
 
 fu! s:session_loaded_in_other_instance(file) abort " {{{1
@@ -282,6 +238,8 @@ fu! s:session_loaded_in_other_instance(file) abort " {{{1
     let first_buffer        = matchstr(some_buffers[0], '^badd +\d\+ \zs.*')
     let first_file          = fnamemodify(first_buffer, ':p')
     let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
+    "                                   ┌─ ignore 'wildignore'
+    "                                   │
     if !empty(glob(swapfile_first_file, 1))
         return 1
     endif
