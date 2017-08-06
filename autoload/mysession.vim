@@ -1,97 +1,99 @@
-fu! mysession#manual_save(bang, file) abort " {{{1
-    let session = get(g:, 'my_session', v:this_session)
-    if session ==# ':mksession failed' | let session = '' | endif
+fu! s:delete_session() abort "{{{1
+    call delete(s:last_used_session)
+
+    " disable tracking of the session
+    unlet! g:my_session
+
+    "             reduce path relative to current working directory ┐
+    "                                            don't expand `~` ┐ │
+    "                                                             │ │
+    echo 'Deleted session in '.fnamemodify(s:last_used_session, ':~:.')
+
+    " Why do we empty `v:this_session`?
+    "
+    " If we don't, next time we try to save a session (:SessionTrack),
+    " the path in `v:this_session` will be used instead of:
+    "
+    "         ~/.vim/session/Session.vim
+    let v:this_session = ''
+    return ''
+endfu
+
+fu! s:file_is_valuable() abort "{{{1
+    "  `:SessionTrack file` shouldn't overwrite a file which may contain
+    "  valuable data. What does such a file look like? :
+    "
+    "         - readable
+    "         - not empty
+    "         - doesn't look like a session file
+    "           because neither the name nor the contents match
+    if !s:bang
+                \ && filereadable(s:file)
+                \ && getfsize(s:file) > 0
+                \ && s:file !~# 'Session\.vim$'
+                \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
+        return 1
+    endif
+endfu
+
+fu! mysession#initiate_tracking(bang, file) abort " {{{1
+    " We move `a:bang`, `a:file` , and put `s:file`, `s:last_used_session` into
+    " the script-local scope, to not have to pass them as arguments to various
+    " functions:
+    "
+    "         s:should_delete_session()
+    "         s:delete_session()
+    "         s:should_pause_session()
+    "         s:pause_session()
+    "         s:where_do_we_save()
+    "         s:file_is_valuable()
+
+    let s:bang = a:bang
+    let s:file = a:file
+
+    let s:last_used_session = get(g:, 'my_session', v:this_session)
 
     try
-        "  ┌ :SessionSave! was invoked
-        "  │         ┌ it didn't receive any file as argument
-        "  │         │                ┌ there's a readable session file
-        "  │         │                │
-        if a:bang && empty(a:file) && filereadable(session)
-            "  reduce path relative to current working directory ┐
-            "                                 don't expand `~` ┐ │
-            "                                                  │ │
-            echo 'Deleting session in '.fnamemodify(session, ':~:.')
+        if s:should_delete_session()
+            return s:delete_session()
+        elseif s:should_pause_session()
+            return s:pause_session()
+        endif
 
-            " remove session file
-            call delete(session)
-
-            " disable tracking of the session
-            unlet! g:my_session
-
-            " Why empty `v:this_session`?
-            " If we don't, then after deleting a session file (:SessionSave!),
-            " the next time we try to save a session (:SessionSave), the function
-            " will use the file whose path is in `v:this_session` instead of:
-            "         ~/.vim/session/Session.vim
-            let v:this_session = ''
-
-            return ''
-
-        "      ┌─ :SessionSave didn't receive any file as argument
-        "      │                ┌─ the current session is being tracked
-        "      │                │
-        elseif empty(a:file) && exists('g:my_session')
-            echo 'Pausing session in '.fnamemodify(session, ':~:.')
-            unlet g:my_session
-            " don't empty `v:this_session`: we need it if we resume later
-            return ''
-
-        "      ┌─ :SessionSave was invoked without an argument
-        "      │                ┌─ a session has been loaded or written
-        "      │                │                  ┌─ it's not in the `/tmp` directory
-        "      │                │                  │
-        elseif empty(a:file) && !empty(session) && session[:3] !=# '/tmp'
-        " We probably want to update this session (make it persistent).
-        " For the moment, we simply store the path to this session file inside
-        " `file`.
-
-            let file = session
-
-        "     :SessionSave was invoked without an argument
-        "     no session is being tracked         `g:my_session` doesn't exist
-        "     no session has been loaded/saved    `v:this_session` is empty
+        let s:file = s:where_do_we_save()
+        if empty(s:file) | return '' | endif
+        if s:file_is_valuable() | return 'mksession '.fnameescape(s:file) | endif
+        "                                └──────────────────────────────┤
+        "                                                               │
+        " We don't want to raise an error from the current function (ugly stack trace).
+        " The user only knows about `:mksession`, so the error must look like
+        " it's coming from the latter.
+        " We just return 'mksession file'. It will be executed outside this function,
+        " fail, and produce the “easy-to-read“ error message:
         "
-        " We probably want to prepare the tracking of a session.
-        " We need a file for it.
-        " We'll use `~/.vim/session/Session.vim`.
+        "         E189: "file" exists (add ! to override)
 
-        elseif empty(a:file)
-            if !isdirectory($HOME.'/.vim/session')
-                call mkdir($HOME.'/.vim/session')
-            endif
-            let file = $HOME.'/.vim/session/Session.vim'
+        let g:my_session = s:file
+        " let `track()` know that it must save & track the current session
 
-        " :SessionSave dir/
-        elseif isdirectory(a:file)
-            let file = fnamemodify(a:file, ':p').'Session.vim'
-
-        " :SessionSave file
-        else
-            let file = fnamemodify(a:file, ':p')
-        endif
-
-        if !a:bang
-                    \ && file !~# 'Session\.vim$'
-                    \ && filereadable(file)
-                    \ && getfsize(file) > 0
-                    \ && readfile(file, '', 1)[0] !=# 'let SessionLoad = 1'
-            return 'mksession '.fnameescape(file)
-        endif
-
-        let g:my_session = file
-
-        let cmd = mysession#auto_save()
-        if empty(cmd)
-            echo 'Tracking session in '.fnamemodify(file, ':~:.')
+        let error = mysession#track()
+        if empty(error)
+            echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
             return ''
         else
-            return cmd
+            return error
         endif
 
     finally
         redrawstatus!
     endtry
+endfu
+
+fu! s:pause_session() abort "{{{1
+    echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
+    unlet g:my_session
+    " don't empty `v:this_session`: we need it if we resume later
+    return ''
 endfu
 
 fu! mysession#restore(file) abort " {{{1
@@ -242,5 +244,47 @@ fu! s:session_loaded_in_other_instance(file) abort " {{{1
     "                                   │
     if !empty(glob(swapfile_first_file, 1))
         return 1
+    endif
+endfu
+fu! s:should_delete_session() abort "{{{1
+    "  ┌ :SessionTrack! was invoked with a bang
+    "  │         ┌ it received no file as argument
+    "  │         │                ┌ a session file was used and its file is readable
+    "  │         │                │
+    if s:bang && empty(s:file) && filereadable(s:last_used_session)
+        return 1
+    endif
+endfu
+
+fu! s:should_pause_session() abort "{{{1
+    "                   ┌─ the current session is being tracked
+    "                   │
+    if empty(s:file) && exists('g:my_session')
+        return 1
+    endif
+endfu
+
+fu! s:where_do_we_save() abort "{{{1
+
+    " :SessionTrack ø
+    if empty(s:file)
+        if !empty(s:last_used_session)
+            return s:last_used_session
+        else
+            " no session is being tracked
+            " no session has been loaded/saved
+            if !isdirectory($HOME.'/.vim/session')
+                call mkdir($HOME.'/.vim/session')
+            endif
+            return $HOME.'/.vim/session/Session.vim'
+        endif
+
+    " :SessionTrack dir/
+    elseif isdirectory(s:file)
+        return fnamemodify(s:file, ':p').'Session.vim'
+
+    " :SessionTrack file
+    else
+        return fnamemodify(s:file, ':p')
     endif
 endfu
