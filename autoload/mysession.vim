@@ -20,13 +20,17 @@ fu! s:delete_session() abort "{{{1
 endfu
 
 fu! s:file_is_valuable() abort "{{{1
-    "  `:SessionTrack file` shouldn't overwrite a file which may contain
-    "  valuable data. What does such a file look like? :
+    " `:mksession file` fails, because it refuses to overwrite an existing file.
+    " `:SessionTrack` should behave the same way.
+    " With one exception:  if the file isn't valuable, overwrite it anyway.
+    "
+    " What does a valuable file look like? :
     "
     "         - readable
     "         - not empty
     "         - doesn't look like a session file
     "           because neither the name nor the contents match
+
     if !s:bang
                 \ && filereadable(s:file)
                 \ && getfsize(s:file) > 0
@@ -34,11 +38,20 @@ fu! s:file_is_valuable() abort "{{{1
                 \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
         return 1
     endif
+
+    " What about `:SessionTrack! file`?
+    " `:mksession! file` overwrites `file`.
+    " `:SessionTrack!` should do the same, which is why this function will
+    " return 0 if a bang was given.
+
+    " Zen:
+    " When you implement a new feature, always make it behave like the existing
+    " ones. Don't add inconsistency.
 endfu
 
 fu! mysession#initiate_tracking(bang, file) abort " {{{1
-    " We move `a:bang`, `a:file` , and put `s:file`, `s:last_used_session` into
-    " the script-local scope, to not have to pass them as arguments to various
+    " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
+    " script-local scope, to not have to pass them as arguments to various
     " functions:
     "
     "         s:should_delete_session()
@@ -50,10 +63,14 @@ fu! mysession#initiate_tracking(bang, file) abort " {{{1
 
     let s:bang = a:bang
     let s:file = a:file
-
     let s:last_used_session = get(g:, 'my_session', v:this_session)
 
     try
+        " `:SessionTrack` should behave mostly like `:mksession` with the
+        " additionaly benefit of updating the session file.
+        "
+        " However, we want 2 additional features:  deletion and pausing
+
         if s:should_delete_session()
             return s:delete_session()
         elseif s:should_pause_session()
@@ -86,6 +103,7 @@ fu! mysession#initiate_tracking(bang, file) abort " {{{1
 
     finally
         redrawstatus!
+        unlet! s:bang s:file s:last_used_session
     endtry
 endfu
 
@@ -191,7 +209,10 @@ fu! mysession#restore(file) abort " {{{1
     sil! bufdo if expand('%') =~# '^'.$VIMRUNTIME.'/doc/.*\.txt'
             \|     call s:restore_help_settings()
             \| endif
-    exe 'b '.cur_bufnr
+    " I had a `E86` error once (buffer didn't exist anymore).
+    if bufexists(cur_bufnr)
+        exe 'b '.cur_bufnr
+    endif
 endfu
 
 fu! s:restore_help_settings() abort "{{{1
@@ -234,31 +255,36 @@ endfu
 
 fu! s:session_loaded_in_other_instance(file) abort " {{{1
     let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
+
     if empty(some_buffers)
         return 0
     endif
+
     let first_buffer        = matchstr(some_buffers[0], '^badd +\d\+ \zs.*')
     let first_file          = fnamemodify(first_buffer, ':p')
     let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
+
     "                                   ┌─ ignore 'wildignore'
     "                                   │
     if !empty(glob(swapfile_first_file, 1))
         return 1
     endif
 endfu
+
 fu! s:should_delete_session() abort "{{{1
-    "  ┌ :SessionTrack! was invoked with a bang
-    "  │         ┌ it received no file as argument
-    "  │         │                ┌ a session file was used and its file is readable
-    "  │         │                │
+    "                        ┌ :SessionTrack! ø
+    "  ┌─────────────────────┤
     if s:bang && empty(s:file) && filereadable(s:last_used_session)
+    "                             │
+    "                             └─ a session file was used and its file is readable
         return 1
     endif
 endfu
 
 fu! s:should_pause_session() abort "{{{1
-    "                   ┌─ the current session is being tracked
-    "                   │
+    "  ┌─ :SessionTrack ø
+    "  │                ┌─ the current session is being tracked
+    "  │                │
     if empty(s:file) && exists('g:my_session')
         return 1
     endif
@@ -271,8 +297,6 @@ fu! s:where_do_we_save() abort "{{{1
         if !empty(s:last_used_session)
             return s:last_used_session
         else
-            " no session is being tracked
-            " no session has been loaded/saved
             if !isdirectory($HOME.'/.vim/session')
                 call mkdir($HOME.'/.vim/session')
             endif
