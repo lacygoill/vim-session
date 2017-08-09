@@ -4,16 +4,19 @@ augroup my_session
     au!
     au StdInReadPost * let s:read_stdin = 1
 
-    "                       ┌─ if Vim was started with files to edit, we don't
-    "                       │  want their buffers to be immediately lost by
-    "                       │  a restored session
-    "                       │
-    au VimEnter * nested if !argc() && !get(s:, 'read_stdin', 0) | SessionRestore | endif
+    "             ┌─ necessary to source ftplugins (trigger autocmds listening to bufread event?)
     "             │
-    "             └─ necessary to source ftplugins
-    "                (trigger autocmds listening to bufread event?)
+    "             │         ┌─ if Vim was started with files to edit, we don't
+    "             │         │  want their buffers to be immediately lost by
+    "             │         │  a restored session
+    "             │         │
+    au VimEnter * nested if !argc()
+                    \       && !get(s:, 'read_stdin', 0)
+                    \       && len(systemlist('pgrep vim')) < 2
+                    \ |         SLoad
+                    \ |  endif
 
-    " The next autocmd serves 2 purposes:
+    " NOTE: The next autocmd serves 2 purposes:{{{
     "
     "     1. automatically save the current session, as soon as `g:my_session`
     "        pops into existence
@@ -23,17 +26,18 @@ augroup my_session
     "
     " We need the autocmd to be in `plugin/`.
     " Otherwise, if we move it inside `autoload/`, it wouldn't resume tracking
-    " a restored session until `:SessionTrack` is invoked.
+    " a restored session until `:STrack` is invoked.
     " It would give this:
     "
-    "         :SessionTrack …
-    "         → call mysession#initiate_tracking()
+    "         :STrack …
+    "         → call mysession#handle_session()
     "         → source autoload/mysession.vim
     "         → install autocmd
     "         → resume tracking
     "
     " We want the plugin to resume tracking, even if we manually load a previously
     " tracked session:    :so ~/.vim/session/Session.vim
+"}}}
 
     "                            ┌─ if sth goes wrong, the function returns the string:
     "                            │       'echoerr '.string(v:exception)
@@ -53,6 +57,14 @@ augroup my_session
     "     But most of the time, Vim won't quit abnormally, and the last saved
     "     state of our session will be performed when VimLeavePre is fired.
     "     So, `VimLeavePre` will have the final say most of the time.
+
+    au TabClosed * call timer_start(0, {-> execute('exe mysession#track()')})
+    " We also save whenever we close a tabpage, because we don't want
+    " a closed tabpage to be restored while we switch back and forth between
+    " 2 sessions with `:SLoad`.
+    " But, we can't save the session immediately, because for some reason, Vim
+    " would only save the last tabpage (or the current one?). So, we delay the
+    " saving.
 augroup END
 
 " IFF {{{1
@@ -93,7 +105,7 @@ augroup END
 
 " Interface {{{1
 
-" NOTE: Why `exe mysession#initiate_tracking()` {{{
+" NOTE: Why `exe mysession#handle_session()` {{{
 " and why `exe mysession#track()`?
 "
 " If an error occurs in a function, we'll get an error such as:
@@ -102,9 +114,9 @@ augroup END
 "         line   19:
 "         Vim:E492: Not an editor command:             abcd
 "
-" We want our `:SessionTrack` command, and our autocmd, to produce a message
-" similar to a regular Ex command. We don't want to see the detail of the
-" implementation leaking.
+" We want our `:STrack` command, and our autocmd, to produce a message
+" similar to a regular Ex command. We don't want the detail of the implementation
+" to leak.
 "
 " By using `exe function()`, we can get an error message such as:
 "
@@ -120,7 +132,7 @@ augroup END
 "         return 'echoerr '.string(v:exception)
 "     endtry
 "
-" We execute this string in the context of `:SessionTrack`, or of the autocmd.
+" We execute this string in the context of `:STrack`, or of the autocmd.
 " Basically, the try conditional + `exe function()` is a mechanism which
 " allows us to choose the context in which an error may occur.
 " Note, however, that in this case, it prevents our `:WTF` command from capturing
@@ -128,8 +140,8 @@ augroup END
 "
 " "}}}
 
-com! -bar -bang -complete=file -nargs=?  SessionTrack    exe mysession#initiate_tracking(<bang>0, <q-args>)
-com! -bar       -complete=file -nargs=?  SessionRestore  call mysession#restore(<q-args>)
+com! -bar -bang -complete=file -nargs=?  STrack    exe mysession#handle_session(<bang>0, <q-args>)
+com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  call mysession#restore(<q-args>)
 
 " My_session_status {{{1
 
@@ -179,6 +191,7 @@ fu! My_session_status() abort
 
     return [ '', '[S]', '[∞]' ][state]
 endfu
+
 " track {{{1
 
 " This function saves the current session, iff `g:my_session` exists.
@@ -188,13 +201,9 @@ endfu
 " … so that the next time we load the session, the plugin knows that it must
 " track it automatically.
 "
-" It needs to be public to be callable from `manual_save()`.
-" If we moved the latter here, we could make `auto_save()` script-local.
+" It needs to be public to be callable from `handle_session()`.
+" If we moved the latter here, we could make `track()` script-local.
 " We don't, to lazy-load as much code as we can.
-"
-" We can't move `auto_save()` in `autoload/`:
-" it would defeat the whole purpose of `autoload/`, because `auto_save()` can be
-" called when `VimEnter` is fired.
 
 fu! mysession#track() abort
     if exists('g:SessionLoad')
@@ -210,7 +219,8 @@ fu! mysession#track() abort
         " file. This would overwrite the latter, while it's being used to restore
         " the session. Don't do that.
         "
-        " Our session file will be updated next time (`BufWinEnter`, `VimLeavePre`).
+        " Our session file will be updated next time (`BufWinEnter`, `TabClosed`,
+        " `VimLeavePre`).
 
         return ''
     endif
@@ -254,23 +264,23 @@ endfu
 
 " Usage {{{1
 
-"     :SessionTrack file
+"     :STrack file
 "
 " Invoke `:mksession` on `file`, iff `file`:
 "
 "     • doesn't exist
 "     • is empty
-"     • looks like a session file
+"     • looks like a session file (according to its name or its contents)
 "
-" Update the file whenever `BufWinEnter` or `VimLeavePre` is fired.
-"
-"
-"     :SessionTrack dir
-"
-" Invoke `:SessionTrack` on `dir/Session.vim`.
+" Update the file whenever `BufWinEnter`, `TabClosed` or `VimLeavePre` is fired.
 "
 "
-"     :SessionTrack
+"     :STrack dir
+"
+" Invoke `:STrack` on `dir/Session.vim`.
+"
+"
+"     :STrack
 "
 " If the tracking of a session is running:  pause it
 " If the tracking of a session is paused:   resume it
@@ -278,12 +288,12 @@ endfu
 " ~/.vim/session/Session.vim
 "
 "
-"     :SessionTrack!
+"     :STrack!
 "
 " If no session is being tracked, begin the tracking.
 " If the tracking of a session is running:  cancel it and remove the session
 " file.
 "
 "
-" Loading a session created with `:SessionTrack` automatically resumes updates
+" Loading a session created with `:STrack` automatically resumes updates
 " to that file.

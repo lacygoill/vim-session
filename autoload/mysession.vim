@@ -11,7 +11,7 @@ fu! s:delete_session() abort "{{{1
 
     " Why do we empty `v:this_session`?
     "
-    " If we don't, next time we try to save a session (:SessionTrack),
+    " If we don't, next time we try to save a session (:STrack),
     " the path in `v:this_session` will be used instead of:
     "
     "         ~/.vim/session/Session.vim
@@ -21,7 +21,7 @@ endfu
 
 fu! s:file_is_valuable() abort "{{{1
     " `:mksession file` fails, because it refuses to overwrite an existing file.
-    " `:SessionTrack` should behave the same way.
+    " `:STrack` should behave the same way.
     " With one exception:  if the file isn't valuable, overwrite it anyway.
     "
     " What does a valuable file look like? :
@@ -39,9 +39,9 @@ fu! s:file_is_valuable() abort "{{{1
         return 1
     endif
 
-    " What about `:SessionTrack! file`?
+    " What about `:STrack! file`?
     " `:mksession! file` overwrites `file`.
-    " `:SessionTrack!` should do the same, which is why this function will
+    " `:STrack!` should do the same, which is why this function will
     " return 0 if a bang was given.
 
     " Zen:
@@ -49,7 +49,7 @@ fu! s:file_is_valuable() abort "{{{1
     " ones. Don't add inconsistency.
 endfu
 
-fu! mysession#initiate_tracking(bang, file) abort " {{{1
+fu! mysession#handle_session(bang, file) abort " {{{1
     " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
     " script-local scope, to not have to pass them as arguments to various
     " functions:
@@ -66,10 +66,26 @@ fu! mysession#initiate_tracking(bang, file) abort " {{{1
     let s:last_used_session = get(g:, 'my_session', v:this_session)
 
     try
-        " `:SessionTrack` should behave mostly like `:mksession` with the
-        " additionaly benefit of updating the session file.
+        " `:STrack` should behave mostly like `:mksession` with the
+        " additional benefit of updating the session file.
         "
-        " However, we want 2 additional features:  deletion and pausing
+        " However, we want 2 additional features:  deletion and pausing.
+
+        " The conditions to delete and to pause a session could be satisfied
+        " simultaneously. That happens when:
+        "
+        "         - a bang was used
+        "         - no file was given
+        "         - a session has already been saved / written
+        "         - a session is being tracked
+        "
+        " In this case, we WANT (!=need) to delete the session file that was
+        " last used, and try to stop the tracking of the current session if
+        " there's one. So, we check first `should_delete_session()`, THEN
+        " `should_pause_session()`.
+        "
+        " We give priority to deletion over pausing, because it fits our
+        " intuition. A bang should mean deletion.
 
         if s:should_delete_session()
             return s:delete_session()
@@ -114,6 +130,22 @@ fu! s:pause_session() abort "{{{1
     return ''
 endfu
 
+fu! s:rename_tmux_window(file) abort "{{{1
+    "                                               ┌─ remove head (/path/to/)
+    "                                               │ ┌─ remove extension (.vim)
+    "                                               │ │
+    let window_title = string(fnamemodify(a:file, ':t:r'))
+    call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
+
+    augroup my_tmux_window_title
+        au!
+        " We've just renamed the tmux window, so tmux automatically
+        " disabled the 'automatic-rename' option. We'll re-enable it when
+        " we quit Vim.
+        au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
+    augroup END
+endfu
+
 fu! mysession#restore(file) abort " {{{1
     let file = !empty(a:file)
              \   ? fnamemodify(a:file, ':p')
@@ -122,15 +154,38 @@ fu! mysession#restore(file) abort " {{{1
     " Don't source the session file if it is:
     "
     "         1. NOT readable
-    "         2. already loaded in another Vim instance
-    "         3. already loaded in the current instance
+    "         2. already loaded
 
     if !filereadable(file)
-    \ || s:session_loaded_in_other_instance(file)
     \ || ( exists('g:my_session') && file ==# g:my_session )
         return
     endif
+    " NOTE: old additional condition {{{
+    "
+    " The next condition would be useful to prevent our autocmd which invokes
+    " `SLoad` from automatically sourcing the same session in 2 different
+    " Vim instances (which would give warning messages because of the swap
+    " files):
+    "
+    "         \ || s:session_loaded_in_other_instance(file)
+    "
+    " But contrary to the name of the function, it can only detect whether
+    " a session has already been loaded in a still-running Vim instance.
+    " It can't detect whether the session is loaded in another Vim instance,
+    " or in the current one.
+    " Besides, it can be useful to switch from a session to another, and come
+    " back later to the original session. This condition would prevent that,
+    " because it would wronlgy assume that the session has been loaded in
+    " another Vim instance."}}}
 
+    " If we switch from a session with several tabpages, to another one with
+    " just one, all the tabpages from the 1st session (except the first tabpage)
+    " are transferred to the new session.
+    sil! tabonly | sil! only
+    "  │
+    "  └─ if there's already only 1 tab, it will display a message
+
+    exe 'so '.fnameescape(file)
     " NOTE: possible issue with other autocmds {{{
     "
     " Every custom function that we invoke in any autocmd (vimrc, other plugin)
@@ -168,8 +223,6 @@ fu! mysession#restore(file) abort " {{{1
     "             return
     "         endif
 "}}}
-
-    exe 'so '.fnameescape(file)
 
     " The next command may leave us in a new window.
     " We need to save our current position, to restore it later.
@@ -213,6 +266,8 @@ fu! mysession#restore(file) abort " {{{1
     if bufexists(cur_bufnr)
         exe 'b '.cur_bufnr
     endif
+
+    call s:rename_tmux_window(file)
 endfu
 
 fu! s:restore_help_settings() abort "{{{1
@@ -253,26 +308,26 @@ fu! s:restore_help_settings() abort "{{{1
     " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
 endfu
 
-fu! s:session_loaded_in_other_instance(file) abort " {{{1
-    let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
-
-    if empty(some_buffers)
-        return 0
-    endif
-
-    let first_buffer        = matchstr(some_buffers[0], '^badd +\d\+ \zs.*')
-    let first_file          = fnamemodify(first_buffer, ':p')
-    let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
-
-    "                                   ┌─ ignore 'wildignore'
-    "                                   │
-    if !empty(glob(swapfile_first_file, 1))
-        return 1
-    endif
-endfu
+" fu! s:session_loaded_in_other_instance(file) abort " {{{1
+"     let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
+"
+"     if empty(some_buffers)
+"         return 0
+"     endif
+"
+"     let first_buffer        = matchstr(some_buffers[0], '^badd +\d\+ \zs.*')
+"     let first_file          = fnamemodify(first_buffer, ':p')
+"     let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
+"
+"     "                                   ┌─ ignore 'wildignore'
+"     "                                   │
+"     if !empty(glob(swapfile_first_file, 1))
+"         return 1
+"     endif
+" endfu
 
 fu! s:should_delete_session() abort "{{{1
-    "                        ┌ :SessionTrack! ø
+    "                        ┌ :STrack! ø
     "  ┌─────────────────────┤
     if s:bang && empty(s:file) && filereadable(s:last_used_session)
     "                             │
@@ -282,7 +337,7 @@ fu! s:should_delete_session() abort "{{{1
 endfu
 
 fu! s:should_pause_session() abort "{{{1
-    "  ┌─ :SessionTrack ø
+    "  ┌─ :STrack ø
     "  │                ┌─ the current session is being tracked
     "  │                │
     if empty(s:file) && exists('g:my_session')
@@ -290,9 +345,15 @@ fu! s:should_pause_session() abort "{{{1
     endif
 endfu
 
+fu! mysession#suggest_sessions(lead, line, _pos) abort "{{{1
+    let dir   = $HOME.'/.vim/session/'
+    let files = glob(dir.'*'.a:lead.'*', 0, 1)
+    return map(files, 'fnamemodify(v:val, ":~:.")')
+endfu
+
 fu! s:where_do_we_save() abort "{{{1
 
-    " :SessionTrack ø
+    " :STrack ø
     if empty(s:file)
         if !empty(s:last_used_session)
             return s:last_used_session
@@ -303,11 +364,11 @@ fu! s:where_do_we_save() abort "{{{1
             return $HOME.'/.vim/session/Session.vim'
         endif
 
-    " :SessionTrack dir/
+    " :STrack dir/
     elseif isdirectory(s:file)
         return fnamemodify(s:file, ':p').'Session.vim'
 
-    " :SessionTrack file
+    " :STrack file
     else
         return fnamemodify(s:file, ':p')
     endif
