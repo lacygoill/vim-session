@@ -14,7 +14,7 @@ fu! s:delete_session() abort "{{{1
     " If we don't, next time we try to save a session (:STrack),
     " the path in `v:this_session` will be used instead of:
     "
-    "         ~/.vim/session/Session.vim
+    "         ~/.vim/session/default.vim
     let v:this_session = ''
     return ''
 endfu
@@ -34,7 +34,7 @@ fu! s:file_is_valuable() abort "{{{1
     if !s:bang
                 \ && filereadable(s:file)
                 \ && getfsize(s:file) > 0
-                \ && s:file !~# 'Session\.vim$'
+                \ && s:file !~# 'default\.vim$'
                 \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
         return 1
     endif
@@ -147,9 +147,12 @@ fu! s:rename_tmux_window(file) abort "{{{1
 endfu
 
 fu! mysession#restore(file) abort " {{{1
-    let file = !empty(a:file)
-             \   ? fnamemodify(a:file, ':p')
-             \   : $HOME.'/.vim/session/Session.vim'
+
+    let file = empty(a:file)
+                \ ? $HOME.'/.vim/session/default.vim'
+                \ : a:file =~# '/'
+                \     ? fnamemodify(a:file, ':p')
+                \     : $HOME.'/.vim/session/'.a:file.'.vim'
 
     " Don't source the session file if it is:
     "
@@ -196,7 +199,7 @@ fu! mysession#restore(file) abort " {{{1
     " disabled, THEN emit the `BufRead` event in all buffers, to execute the
     " autocmds associated to filetype detection:
     "
-    "         noautocmd so ~/.vim/session/Session.vim
+    "         noautocmd so ~/.vim/session/default.vim
     "         doautoall filetypedetect BufRead
     "                   │
     "                   └─ $VIMRUNTIME/filetype.vim
@@ -348,7 +351,7 @@ endfu
 fu! mysession#suggest_sessions(lead, line, _pos) abort "{{{1
     let dir   = $HOME.'/.vim/session/'
     let files = glob(dir.'*'.a:lead.'*', 0, 1)
-    return map(files, 'fnamemodify(v:val, ":~:.")')
+    return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
 endfu
 
 fu! s:where_do_we_save() abort "{{{1
@@ -361,15 +364,17 @@ fu! s:where_do_we_save() abort "{{{1
             if !isdirectory($HOME.'/.vim/session')
                 call mkdir($HOME.'/.vim/session')
             endif
-            return $HOME.'/.vim/session/Session.vim'
+            return $HOME.'/.vim/session/default.vim'
         endif
 
     " :STrack dir/
     elseif isdirectory(s:file)
-        return fnamemodify(s:file, ':p').'Session.vim'
+        return fnamemodify(s:file, ':p').'default.vim'
 
     " :STrack file
     else
-        return fnamemodify(s:file, ':p')
+        return s:file =~# '/'
+                    \ ? fnamemodify(s:file, ':p')
+                    \ : 'session/'.s:file.'.vim'
     endif
 endfu
