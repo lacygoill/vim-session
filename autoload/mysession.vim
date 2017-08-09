@@ -188,7 +188,12 @@ fu! mysession#restore(file) abort " {{{1
     "  │
     "  └─ if there's already only 1 tab, it will display a message
 
-    exe 'so '.fnameescape(file)
+    "  ┌─ Sometimes, when one of the session contains one of our folded notes,
+    "  │  an error is raised. It seems some commands, like `zo`, fail to
+    "  │  manipulate a fold, because it doesn't exist. Maybe, the buffer is not
+    "  │  folded yet.
+    "  │
+    sil! exe 'so '.fnameescape(file)
     " NOTE: possible issue with other autocmds {{{
     "
     " Every custom function that we invoke in any autocmd (vimrc, other plugin)
