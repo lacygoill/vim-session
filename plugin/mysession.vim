@@ -108,11 +108,12 @@ fu! My_session_status() abort
 endfu
 
 fu! s:safe_to_load_session() abort "{{{2
-    "       ┌─ if Vim was started with files to edit, we don't want their
-    "       │  buffers to be immediately lost by a restored session
-    "       │
-    "       │          ┌─ a session shouldn't be loaded when we use Vim in a pipeline
-    "       │          │
+    "      ┌─ Vim should be started with NO files to edit.
+    "      │  If there are files to edit we don't want their buffers to be
+    "      │  immediately lost by a restored session.
+    "      │
+    "      │          ┌─ a session shouldn't be loaded when we use Vim in a pipeline
+    "      │          │
     return !argc() && !get(s:, 'read_stdin', 0) && len(systemlist('pgrep vim')) < 2
     "                                              │
     "                                              └─ if a Vim instance is already running

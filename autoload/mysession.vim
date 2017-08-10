@@ -1,24 +1,3 @@
-fu! s:delete_session() abort "{{{1
-    call delete(s:last_used_session)
-
-    " disable tracking of the session
-    unlet! g:my_session
-
-    "             reduce path relative to current working directory ┐
-    "                                            don't expand `~` ┐ │
-    "                                                             │ │
-    echo 'Deleted session in '.fnamemodify(s:last_used_session, ':~:.')
-
-    " Why do we empty `v:this_session`?
-    "
-    " If we don't, next time we try to save a session (:STrack),
-    " the path in `v:this_session` will be used instead of:
-    "
-    "         ~/.vim/session/default.vim
-    let v:this_session = ''
-    return ''
-endfu
-
 fu! s:file_is_valuable() abort "{{{1
     " `:mksession file` fails, because it refuses to overwrite an existing file.
     " `:STrack` should behave the same way.
@@ -51,13 +30,13 @@ endfu
 
 fu! mysession#handle_session(bang, file) abort " {{{1
     " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
-    " script-local scope, to not have to pass them as arguments to various
+    " script-local scope, to NOT have to pass them as arguments to various
     " functions:
     "
     "         s:should_delete_session()
-    "         s:delete_session()
+    "         s:session_delete()
     "         s:should_pause_session()
-    "         s:pause_session()
+    "         s:session_pause()
     "         s:where_do_we_save()
     "         s:file_is_valuable()
 
@@ -70,27 +49,14 @@ fu! mysession#handle_session(bang, file) abort " {{{1
         " additional benefit of updating the session file.
         "
         " However, we want 2 additional features:  deletion and pausing.
+        "
+        "         :STrack     pause
+        "         :STrack!    delete
 
-        " The conditions to delete and to pause a session could be satisfied
-        " simultaneously. That happens when:
-        "
-        "         - a bang was used
-        "         - no file was given
-        "         - a session has already been saved / written
-        "         - a session is being tracked
-        "
-        " In this case, we WANT (!=need) to delete the session file that was
-        " last used, and try to stop the tracking of the current session if
-        " there's one. So, we check first `should_delete_session()`, THEN
-        " `should_pause_session()`.
-        "
-        " We give priority to deletion over pausing, because it fits our
-        " intuition. A bang should mean deletion.
-
-        if s:should_delete_session()
-            return s:delete_session()
-        elseif s:should_pause_session()
-            return s:pause_session()
+        if s:should_pause_session()
+            return s:session_pause()
+        elseif s:should_delete_session()
+            return s:session_delete()
         endif
 
         let s:file = s:where_do_we_save()
@@ -121,13 +87,6 @@ fu! mysession#handle_session(bang, file) abort " {{{1
         redrawstatus!
         unlet! s:bang s:file s:last_used_session
     endtry
-endfu
-
-fu! s:pause_session() abort "{{{1
-    echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
-    unlet g:my_session
-    " don't empty `v:this_session`: we need it if we resume later
-    return ''
 endfu
 
 fu! s:rename_tmux_window(file) abort "{{{1
@@ -316,6 +275,34 @@ fu! s:restore_help_settings() abort "{{{1
     " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
 endfu
 
+fu! s:session_delete() abort "{{{1
+    call delete(s:last_used_session)
+
+    " disable tracking of the session
+    unlet! g:my_session
+
+    "             reduce path relative to current working directory ┐
+    "                                            don't expand `~` ┐ │
+    "                                                             │ │
+    echo 'Deleted session in '.fnamemodify(s:last_used_session, ':~:.')
+
+    " Why do we empty `v:this_session`?
+    "
+    " If we don't, next time we try to save a session (:STrack),
+    " the path in `v:this_session` will be used instead of:
+    "
+    "         ~/.vim/session/default.vim
+    let v:this_session = ''
+    return ''
+endfu
+
+fu! s:session_pause() abort "{{{1
+    echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
+    unlet g:my_session
+    " don't empty `v:this_session`: we need it if we resume later
+    return ''
+endfu
+
 " fu! s:session_loaded_in_other_instance(file) abort " {{{1
 "     let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
 "
@@ -345,10 +332,11 @@ fu! s:should_delete_session() abort "{{{1
 endfu
 
 fu! s:should_pause_session() abort "{{{1
-    "  ┌─ :STrack ø
-    "  │                ┌─ the current session is being tracked
-    "  │                │
-    if empty(s:file) && exists('g:my_session')
+    "  ┌─ no bang
+    "  │          ┌─ :STrack ø
+    "  │          │                ┌─ the current session is being tracked
+    "  │          │                │
+    if !s:bang && empty(s:file) && exists('g:my_session')
         return 1
     endif
 endfu
