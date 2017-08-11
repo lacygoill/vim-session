@@ -34,7 +34,7 @@
 "                                                   ├───────────┘
 "             this whole part is added by the 2nd f ┘
 
-" Autocmd {{{1
+" Autocmds {{{1
 
 augroup my_session
     au!
@@ -93,8 +93,80 @@ augroup my_session
     " saving.
 augroup END
 
+" Commands {{{1
+
+" NOTE: Why `exe s:handle_session()` {{{
+" and why `exe s:track()`?
+"
+" If an error occurs in a function, we'll get an error such as:
+"
+"         Error detected while processing function <SNR>42_track:
+"         line   19:
+"         Vim:E492: Not an editor command:             abcd
+"
+" We want our `:STrack` command, and our autocmd, to produce a message
+" similar to a regular Ex command. We don't want the detail of the implementation
+" to leak.
+"
+" By using `exe function()`, we can get an error message such as:
+"
+"         Error detected while processing BufWinEnter Auto commands for "*":
+"         Vim:E492: Not an editor command:             abcd
+"
+" How does it work?
+" When an error may occur, we capture it and convert it into a string:
+"
+"     try
+"         …
+"     catch
+"         return 'echoerr '.string(v:exception)
+"     endtry
+"
+" We execute this string in the context of `:STrack`, or of the autocmd.
+" Basically, the try conditional + `exe function()` is a mechanism which
+" allows us to choose the context in which an error may occur.
+" Note, however, that in this case, it prevents our `:WTF` command from capturing
+" the error, because it will happen outside of a function.
+" "}}}
+
+com! -bar -bang -complete=file -nargs=?  STrack    exe s:handle_session(<bang>0, <q-args>)
+com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  call mysession#restore(<q-args>)
+
 " Functions "{{{1
+fu! s:file_is_valuable() abort "{{{2
+    " `:mksession file` fails, because it refuses to overwrite an existing file.
+    " `:STrack` should behave the same way.
+    " With one exception:  if the file isn't valuable, overwrite it anyway.
+    "
+    " What does a valuable file look like? :
+    "
+    "         - readable
+    "         - not empty
+    "         - doesn't look like a session file
+    "           because neither the name nor the contents match
+
+    if     filereadable(s:file)
+      \ && getfsize(s:file) > 0
+      \ && s:file !~# 'default\.vim$'
+      \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
+        return 1
+    endif
+
+    " What about `:STrack! file`?
+    " `:mksession! file` overwrites `file`.
+    " `:STrack!` should do the same, which is why this function will
+    " return 0 if a bang was given.
+
+    " Zen:
+    " When you implement a new feature, always make it behave like the existing
+    " ones. Don't add inconsistency.
+endfu
 fu! s:handle_session(bang, file) abort " {{{2
+    " NOTE:
+    " We can't move `handle_session()` in `autoload/` and make it public.
+    " Because it calls `track()` which must be script-local.
+
+
     " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
     " script-local scope, to NOT have to pass them as arguments to various
     " functions:
@@ -154,10 +226,7 @@ fu! s:handle_session(bang, file) abort " {{{2
         unlet! s:bang s:file s:last_used_session
     endtry
 endfu
-
-" My_session_status {{{2
-
-fu! My_session_status() abort
+fu! My_session_status() abort "{{{2
 
     " From the perspective of sessions, Vim can be in 3 states:
     "
@@ -203,7 +272,6 @@ fu! My_session_status() abort
 
     return [ '', '[S]', '[∞]' ][state]
 endfu
-
 fu! s:safe_to_load_session() abort "{{{2
     "      ┌─ Vim should be started with NO files to edit.
     "      │  If there are files to edit we don't want their buffers to be
@@ -219,10 +287,53 @@ fu! s:safe_to_load_session() abort "{{{2
     "                                              loading them in a 2nd instance could raise errors (E325)
 endfu
 
+fu! s:session_delete() abort "{{{2
+    call delete(s:last_used_session)
+
+    " disable tracking of the session
+    unlet! g:my_session
+
+    "             reduce path relative to current working directory ┐
+    "                                            don't expand `~` ┐ │
+    "                                                             │ │
+    echo 'Deleted session in '.fnamemodify(s:last_used_session, ':~:.')
+
+    " Why do we empty `v:this_session`?
+    "
+    " If we don't, next time we try to save a session (:STrack),
+    " the path in `v:this_session` will be used instead of:
+    "
+    "         ~/.vim/session/default.vim
+    let v:this_session = ''
+    return ''
+endfu
+fu! s:session_pause() abort "{{{2
+    echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
+    unlet g:my_session
+    " don't empty `v:this_session`: we need it if we resume later
+    return ''
+endfu
+fu! s:should_delete_session() abort "{{{2
+    "                        ┌ :STrack! ø
+    "  ┌─────────────────────┤
+    if s:bang && empty(s:file) && filereadable(s:last_used_session)
+    "                             │
+    "                             └─ a session file was used and its file is readable
+        return 1
+    endif
+endfu
+fu! s:should_pause_session() abort "{{{2
+    "  ┌─ no bang
+    "  │          ┌─ :STrack ø
+    "  │          │                ┌─ the current session is being tracked
+    "  │          │                │
+    if !s:bang && empty(s:file) && exists('g:my_session')
+        return 1
+    endif
+endfu
 fu! s:snr() "{{{2
     return matchstr(expand('<sfile>'), '<SNR>\d\+_')
 endfu
-
 " track {{{2
 
 " We can't make `track()` public and call it `mysession#track()`.
@@ -308,46 +419,30 @@ fu! s:track() abort
     endif
     return ''
 endfu
+fu! s:where_do_we_save() abort "{{{2
 
-" Interface {{{1
+    " :STrack ø
+    if empty(s:file)
+        if !empty(s:last_used_session)
+            return s:last_used_session
+        else
+            if !isdirectory($HOME.'/.vim/session')
+                call mkdir($HOME.'/.vim/session')
+            endif
+            return $HOME.'/.vim/session/default.vim'
+        endif
 
-" NOTE: Why `exe s:handle_session()` {{{
-" and why `exe s:track()`?
-"
-" If an error occurs in a function, we'll get an error such as:
-"
-"         Error detected while processing function <SNR>42_track:
-"         line   19:
-"         Vim:E492: Not an editor command:             abcd
-"
-" We want our `:STrack` command, and our autocmd, to produce a message
-" similar to a regular Ex command. We don't want the detail of the implementation
-" to leak.
-"
-" By using `exe function()`, we can get an error message such as:
-"
-"         Error detected while processing BufWinEnter Auto commands for "*":
-"         Vim:E492: Not an editor command:             abcd
-"
-" How does it work?
-" When an error may occur, we capture it and convert it into a string:
-"
-"     try
-"         …
-"     catch
-"         return 'echoerr '.string(v:exception)
-"     endtry
-"
-" We execute this string in the context of `:STrack`, or of the autocmd.
-" Basically, the try conditional + `exe function()` is a mechanism which
-" allows us to choose the context in which an error may occur.
-" Note, however, that in this case, it prevents our `:WTF` command from capturing
-" the error, because it will happen outside of a function.
-" "}}}
+    " :STrack dir/
+    elseif isdirectory(s:file)
+        return fnamemodify(s:file, ':p').'default.vim'
 
-com! -bar -bang -complete=file -nargs=?  STrack    exe s:handle_session(<bang>0, <q-args>)
-com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  call mysession#restore(<q-args>)
-
+    " :STrack file
+    else
+        return s:file =~# '/'
+                    \ ? fnamemodify(s:file, ':p')
+                    \ : 'session/'.s:file.'.vim'
+    endif
+endfu
 " Usage {{{1
 
 "     :STrack file

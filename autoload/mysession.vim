@@ -1,32 +1,3 @@
-fu! s:file_is_valuable() abort "{{{1
-    " `:mksession file` fails, because it refuses to overwrite an existing file.
-    " `:STrack` should behave the same way.
-    " With one exception:  if the file isn't valuable, overwrite it anyway.
-    "
-    " What does a valuable file look like? :
-    "
-    "         - readable
-    "         - not empty
-    "         - doesn't look like a session file
-    "           because neither the name nor the contents match
-
-    if     filereadable(s:file)
-      \ && getfsize(s:file) > 0
-      \ && s:file !~# 'default\.vim$'
-      \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
-        return 1
-    endif
-
-    " What about `:STrack! file`?
-    " `:mksession! file` overwrites `file`.
-    " `:STrack!` should do the same, which is why this function will
-    " return 0 if a bang was given.
-
-    " Zen:
-    " When you implement a new feature, always make it behave like the existing
-    " ones. Don't add inconsistency.
-endfu
-
 fu! s:rename_tmux_window(file) abort "{{{1
     "                                               ┌─ remove head (/path/to/)
     "                                               │ ┌─ remove extension (.vim)
@@ -214,34 +185,6 @@ fu! s:restore_help_settings() abort "{{{1
     " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
 endfu
 
-fu! s:session_delete() abort "{{{1
-    call delete(s:last_used_session)
-
-    " disable tracking of the session
-    unlet! g:my_session
-
-    "             reduce path relative to current working directory ┐
-    "                                            don't expand `~` ┐ │
-    "                                                             │ │
-    echo 'Deleted session in '.fnamemodify(s:last_used_session, ':~:.')
-
-    " Why do we empty `v:this_session`?
-    "
-    " If we don't, next time we try to save a session (:STrack),
-    " the path in `v:this_session` will be used instead of:
-    "
-    "         ~/.vim/session/default.vim
-    let v:this_session = ''
-    return ''
-endfu
-
-fu! s:session_pause() abort "{{{1
-    echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
-    unlet g:my_session
-    " don't empty `v:this_session`: we need it if we resume later
-    return ''
-endfu
-
 " fu! s:session_loaded_in_other_instance(file) abort " {{{1
 "     let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
 "
@@ -260,53 +203,9 @@ endfu
 "     endif
 " endfu
 
-fu! s:should_delete_session() abort "{{{1
-    "                        ┌ :STrack! ø
-    "  ┌─────────────────────┤
-    if s:bang && empty(s:file) && filereadable(s:last_used_session)
-    "                             │
-    "                             └─ a session file was used and its file is readable
-        return 1
-    endif
-endfu
-
-fu! s:should_pause_session() abort "{{{1
-    "  ┌─ no bang
-    "  │          ┌─ :STrack ø
-    "  │          │                ┌─ the current session is being tracked
-    "  │          │                │
-    if !s:bang && empty(s:file) && exists('g:my_session')
-        return 1
-    endif
-endfu
-
 fu! mysession#suggest_sessions(lead, line, _pos) abort "{{{1
     let dir   = $HOME.'/.vim/session/'
     let files = glob(dir.'*'.a:lead.'*', 0, 1)
     return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
 endfu
 
-fu! s:where_do_we_save() abort "{{{1
-
-    " :STrack ø
-    if empty(s:file)
-        if !empty(s:last_used_session)
-            return s:last_used_session
-        else
-            if !isdirectory($HOME.'/.vim/session')
-                call mkdir($HOME.'/.vim/session')
-            endif
-            return $HOME.'/.vim/session/default.vim'
-        endif
-
-    " :STrack dir/
-    elseif isdirectory(s:file)
-        return fnamemodify(s:file, ':p').'default.vim'
-
-    " :STrack file
-    else
-        return s:file =~# '/'
-                    \ ? fnamemodify(s:file, ':p')
-                    \ : 'session/'.s:file.'.vim'
-    endif
-endfu
