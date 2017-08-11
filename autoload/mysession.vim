@@ -56,6 +56,11 @@ fu! mysession#restore(file) abort " {{{1
     "  │
     "  └─ if there's already only 1 tab, it will display a message
 
+    " Even though we don't include 'options' inside 'ssop', a session file
+    " manipulates the value of 'shm'. We save and restore this option
+    " manually, to be sure it won't be changed. It happened once:
+    " 'shm' was constantly emptied by all session files.
+    let shm_save = &shm
     "  ┌─ Sometimes, when one of the session contains one of our folded notes,
     "  │  an error is raised. It seems some commands, like `zo`, fail to
     "  │  manipulate a fold, because it doesn't exist. Maybe, the buffer is not
@@ -100,6 +105,7 @@ fu! mysession#restore(file) abort " {{{1
     "         endif
 "}}}
 
+    let &shm = shm_save
     let g:MY_LAST_SESSION = fnamemodify(g:my_session, ':t:r')
 
     " The next command may leave us in a new window.
