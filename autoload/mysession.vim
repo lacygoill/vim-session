@@ -10,11 +10,10 @@ fu! s:file_is_valuable() abort "{{{1
     "         - doesn't look like a session file
     "           because neither the name nor the contents match
 
-    if !s:bang
-                \ && filereadable(s:file)
-                \ && getfsize(s:file) > 0
-                \ && s:file !~# 'default\.vim$'
-                \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
+    if     filereadable(s:file)
+      \ && getfsize(s:file) > 0
+      \ && s:file !~# 'default\.vim$'
+      \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
         return 1
     endif
 
@@ -26,67 +25,6 @@ fu! s:file_is_valuable() abort "{{{1
     " Zen:
     " When you implement a new feature, always make it behave like the existing
     " ones. Don't add inconsistency.
-endfu
-
-fu! mysession#handle_session(bang, file) abort " {{{1
-    " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
-    " script-local scope, to NOT have to pass them as arguments to various
-    " functions:
-    "
-    "         s:should_delete_session()
-    "         s:session_delete()
-    "         s:should_pause_session()
-    "         s:session_pause()
-    "         s:where_do_we_save()
-    "         s:file_is_valuable()
-
-    let s:bang = a:bang
-    let s:file = a:file
-    let s:last_used_session = get(g:, 'my_session', v:this_session)
-
-    try
-        " `:STrack` should behave mostly like `:mksession` with the
-        " additional benefit of updating the session file.
-        "
-        " However, we want 2 additional features:  deletion and pausing.
-        "
-        "         :STrack     pause
-        "         :STrack!    delete
-
-        if s:should_pause_session()
-            return s:session_pause()
-        elseif s:should_delete_session()
-            return s:session_delete()
-        endif
-
-        let s:file = s:where_do_we_save()
-        if empty(s:file) | return '' | endif
-        if s:file_is_valuable() | return 'mksession '.fnameescape(s:file) | endif
-        "                                └──────────────────────────────┤
-        "                                                               │
-        " We don't want to raise an error from the current function (ugly stack trace).
-        " The user only knows about `:mksession`, so the error must look like
-        " it's coming from the latter.
-        " We just return 'mksession file'. It will be executed outside this function,
-        " fail, and produce the “easy-to-read“ error message:
-        "
-        "         E189: "file" exists (add ! to override)
-
-        let g:my_session = s:file
-        " let `track()` know that it must save & track the current session
-
-        let error = mysession#track()
-        if empty(error)
-            echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
-            return ''
-        else
-            return error
-        endif
-
-    finally
-        redrawstatus!
-        unlet! s:bang s:file s:last_used_session
-    endtry
 endfu
 
 fu! s:rename_tmux_window(file) abort "{{{1
@@ -226,7 +164,7 @@ fu! mysession#restore(file) abort " {{{1
     " Thus, it could replace its buffer with another buffer (the one with the
     " biggest number).
     let cur_bufnr = bufnr('%')
-    sil! bufdo if expand('%') =~# '^'.$VIMRUNTIME.'/doc/.*\.txt'
+    sil! bufdo if expand('%') =~# '/doc/.*\.txt$'
             \|     call s:restore_help_settings()
             \| endif
     " I had a `E86` error once (buffer didn't exist anymore).
@@ -242,6 +180,7 @@ fu! s:restore_help_settings() abort "{{{1
     " including the syntax highlighting.
 
     setl ft=help nobuflisted noma ro
+    so $VIMRUNTIME/syntax/help.vim
 
     augroup restore_help_settings
         au! * <buffer>

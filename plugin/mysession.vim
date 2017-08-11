@@ -1,3 +1,39 @@
+" Zen {{{1
+" IFF {{{2
+
+"                      ┌ B
+" ┌────────────────────┤
+" It will be overwritten IF it looks like a session file.
+"                           └──────────────────────────┤
+"                                                      └ A
+"
+" rewritten formally:
+"
+"     A ⇒ B :  IF it looks like a session file, it will be overwritten
+
+
+"                      ┌ B
+" ┌────────────────────┤
+" It will be overwritten, IF AND ONLY IF it looks like a session file.
+"                                        └──────────────────────────┤
+"                                                                   └ A
+"
+" rewritten formally:
+"
+"      A  ⇒  B  : same as before
+"
+" +    B  ⇒  A  : IF it is overwritten, it looks like a session file
+" OR  ¬A  ⇒ ¬B  : IF it does NOT look like a session file, it will NOT be overwritten
+
+
+" Summary:
+" “iff“ = you can read in whatever direction, positively or NEGATIVELY
+"         it's ALWAYS true
+"
+" “iff“ is frequently used to mean `if B then A` + `if ¬B then ¬A`.
+"                                                   ├───────────┘
+"             this whole part is added by the 2nd f ┘
+
 " Autocmd {{{1
 
 augroup my_session
@@ -21,7 +57,7 @@ augroup my_session
     " a simple `:source`. It would give this:
     "
     "         :STrack …
-    "         → call mysession#handle_session()
+    "         → call s:handle_session()
     "         → source autoload/mysession.vim
     "         → install autocmd
     "         → resume tracking
@@ -34,7 +70,7 @@ augroup my_session
     "                            │
     "                            │  we need to execute this string
     "                            │
-    au BufWinEnter,VimLeavePre * exe mysession#track()
+    au BufWinEnter,VimLeavePre * exe s:track()
     "  │
     "  └─ We don't want the session to be saved only when we quit Vim,
     "     because Vim could exit abnormally.
@@ -48,7 +84,7 @@ augroup my_session
     "     state of our session will be performed when VimLeavePre is fired.
     "     So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * call timer_start(0, {-> execute('exe mysession#track()')})
+    au TabClosed * call timer_start(0, {-> execute('exe '.s:snr().'track()')})
     " We also save whenever we close a tabpage, because we don't want
     " a closed tabpage to be restored while we switch back and forth between
     " 2 sessions with `:SLoad`.
@@ -58,6 +94,67 @@ augroup my_session
 augroup END
 
 " Functions "{{{1
+fu! s:handle_session(bang, file) abort " {{{2
+    " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
+    " script-local scope, to NOT have to pass them as arguments to various
+    " functions:
+    "
+    "         s:should_delete_session()
+    "         s:session_delete()
+    "         s:should_pause_session()
+    "         s:session_pause()
+    "         s:where_do_we_save()
+    "         s:file_is_valuable()
+
+    let s:bang = a:bang
+    let s:file = a:file
+    let s:last_used_session = get(g:, 'my_session', v:this_session)
+
+    try
+        " `:STrack` should behave mostly like `:mksession` with the
+        " additional benefit of updating the session file.
+        "
+        " However, we want 2 additional features:  pausing and deletion.
+        "
+        "         :STrack     pause
+        "         :STrack!    delete
+
+        if s:should_pause_session()
+            return s:session_pause()
+        elseif s:should_delete_session()
+            return s:session_delete()
+        endif
+
+        let s:file = s:where_do_we_save()
+        if empty(s:file) | return '' | endif
+        if !s:bang && s:file_is_valuable() | return 'mksession '.fnameescape(s:file) | endif
+        "                                           └──────────────────────────────┤
+        "                                                                          │
+        " We don't want to raise an error from the current function (ugly stack trace).
+        " The user only knows about `:mksession`, so the error must look like
+        " it's coming from the latter.
+        " We just return 'mksession file'. It will be executed outside this function,
+        " fail, and produce the “easy-to-read“ error message:
+        "
+        "         E189: "file" exists (add ! to override)
+
+        let g:my_session = s:file
+        " let `track()` know that it must save & track the current session
+
+        let error = s:track()
+        if empty(error)
+            echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
+            return ''
+        else
+            return error
+        endif
+
+    finally
+        redrawstatus!
+        unlet! s:bang s:file s:last_used_session
+    endtry
+endfu
+
 " My_session_status {{{2
 
 fu! My_session_status() abort
@@ -114,7 +211,7 @@ fu! s:safe_to_load_session() abort "{{{2
     "      │
     "      │          ┌─ a session shouldn't be loaded when we use Vim in a pipeline
     "      │          │
-    return !argc() && !get(s:, 'read_stdin', 0) && len(systemlist('pgrep vim')) < 2
+    return !argc() && !get(s:, 'read_stdin', 0) && len(systemlist('pgrep "^[en]?vim?$|view"')) < 2
     "                                              │
     "                                              └─ if a Vim instance is already running
     "                                              it's possible that some files of the session are
@@ -122,7 +219,31 @@ fu! s:safe_to_load_session() abort "{{{2
     "                                              loading them in a 2nd instance could raise errors (E325)
 endfu
 
+fu! s:snr() "{{{2
+    return matchstr(expand('<sfile>'), '<SNR>\d\+_')
+endfu
+
 " track {{{2
+
+" We can't make `track()` public and call it `mysession#track()`.
+"
+" It's called by the autocmd listening to `BufWinEnter`, so it would be called
+" automatically whenever we start Vim. Even in a 2nd Vim instance, where no session
+" is restored.
+" Even if we write it in `plugin/`, the mere fact of calling
+" `mysession#track()` would cause Vim to source any file called mysession.vim,
+" including the one in `autoload/`.
+"
+" Conclusion:   `autoload/` would be ALWAYS sourced.
+"
+" NOTE:
+" Currently, `autoload/` IS sourced when we start the first Vim instance,
+" because:
+"           :SLoad
+"           :call mysession#restore()
+"
+" There's not much we can do about this.
+
 
 " This function saves the current session, iff `g:my_session` exists.
 " In the session file, it adds the line:
@@ -130,12 +251,8 @@ endfu
 "
 " … so that the next time we load the session, the plugin knows that it must
 " track it automatically.
-"
-" It needs to be public to be callable from `handle_session()`.
-" If we moved the latter here, we could make `track()` script-local.
-" We don't, to lazy-load as much code as we can.
 
-fu! mysession#track() abort
+fu! s:track() abort
     if exists('g:SessionLoad')
         " `g:SessionLoad` exists temporarily while a session is loading.
         " See: :h SessionLoad-variable
@@ -192,50 +309,14 @@ fu! mysession#track() abort
     return ''
 endfu
 
-" IFF {{{1
-
-" NOTE:
-"
-"                      ┌ B
-" ┌────────────────────┤
-" It will be overwritten IF it looks like a session file.
-"                           └──────────────────────────┤
-"                                                      └ A
-"
-" rewritten formally:
-"
-"     A ⇒ B :  IF it looks like a session file, it will be overwritten
-"
-"
-"                      ┌ B
-" ┌────────────────────┤
-" It will be overwritten, IF AND ONLY IF it looks like a session file.
-"                                        └──────────────────────────┤
-"                                                                   └ A
-"
-" rewritten formally:
-"
-"      A  ⇒  B  : same as before
-"
-" +    B  ⇒  A  : IF it is overwritten, it looks like a session file
-" OR  ¬A  ⇒ ¬B  : IF it does NOT look like a session file, it will NOT be overwritten
-"
-" Summary:
-" “iff“ = you can read in whatever direction, positively or NEGATIVELY
-"         it's ALWAYS true
-"
-" “iff“ is frequently used to mean `if B then A` + `if ¬B then ¬A`.
-"                                                   ├───────────┘
-"             this whole part is added by the 2nd f ┘
-
 " Interface {{{1
 
-" NOTE: Why `exe mysession#handle_session()` {{{
-" and why `exe mysession#track()`?
+" NOTE: Why `exe s:handle_session()` {{{
+" and why `exe s:track()`?
 "
 " If an error occurs in a function, we'll get an error such as:
 "
-"         Error detected while processing function mysession#track:
+"         Error detected while processing function <SNR>42_track:
 "         line   19:
 "         Vim:E492: Not an editor command:             abcd
 "
@@ -262,10 +343,9 @@ endfu
 " allows us to choose the context in which an error may occur.
 " Note, however, that in this case, it prevents our `:WTF` command from capturing
 " the error, because it will happen outside of a function.
-"
 " "}}}
 
-com! -bar -bang -complete=file -nargs=?  STrack    exe mysession#handle_session(<bang>0, <q-args>)
+com! -bar -bang -complete=file -nargs=?  STrack    exe s:handle_session(<bang>0, <q-args>)
 com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  call mysession#restore(<q-args>)
 
 " Usage {{{1
