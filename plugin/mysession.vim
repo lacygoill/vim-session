@@ -39,9 +39,12 @@
 augroup my_session
     au!
     au StdInReadPost * let s:read_stdin = 1
-    au VimEnter * nested if s:safe_to_load_session() | SLoad | endif
+
+    "             ┌─ necessary to source ftplugins (trigger autocmds listening to bufread event?)
     "             │
-    "             └─ necessary to source ftplugins (trigger autocmds listening to bufread event?)
+    au VimEnter * nested if s:safe_to_load_session()
+                      \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', 'default')
+                      \| endif
 
     " NOTE: The next autocmd serves 2 purposes:{{{
     "

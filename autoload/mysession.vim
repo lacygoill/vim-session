@@ -100,6 +100,8 @@ fu! mysession#restore(file) abort " {{{1
     "         endif
 "}}}
 
+    let g:MY_LAST_SESSION = fnamemodify(g:my_session, ':t:r')
+
     " The next command may leave us in a new window.
     " We need to save our current position, to restore it later.
     let cur_winid = win_getid()
