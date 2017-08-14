@@ -282,7 +282,7 @@ fu! s:safe_to_load_session() abort "{{{2
     "      │
     "      │          ┌─ a session shouldn't be loaded when we use Vim in a pipeline
     "      │          │
-    return !argc() && !get(s:, 'read_stdin', 0) && len(systemlist('pgrep "^[en]?vim?$|view"')) < 2
+    return !argc() && !get(s:, 'read_stdin', 0) && len(systemlist('pgrep "^[egn]?vim?$|view"')) < 2
     "                                              │
     "                                              └─ if a Vim instance is already running
     "                                              it's possible that some files of the session are
