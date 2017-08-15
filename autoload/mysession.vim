@@ -204,11 +204,9 @@ endfu
 "     let first_file          = fnamemodify(first_buffer, ':p')
 "     let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
 "
-"     "                                   ┌─ ignore 'wildignore'
-"     "                                   │
-"     if !empty(glob(swapfile_first_file, 1))
-"         return 1
-"     endif
+"     "                                          ┌─ ignore 'wildignore'
+"     "                                          │
+"     return if !empty(glob(swapfile_first_file, 1))
 " endfu
 
 fu! mysession#suggest_sessions(lead, line, _pos) abort "{{{1

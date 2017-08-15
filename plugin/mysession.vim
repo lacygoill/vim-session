@@ -148,12 +148,10 @@ fu! s:file_is_valuable() abort "{{{2
     "         - doesn't look like a session file
     "           because neither the name nor the contents match
 
-    if     filereadable(s:file)
+    return filereadable(s:file)
       \ && getfsize(s:file) > 0
       \ && s:file !~# 'default\.vim$'
       \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
-        return 1
-    endif
 
     " What about `:STrack! file`?
     " `:mksession! file` overwrites `file`.
@@ -317,22 +315,18 @@ fu! s:session_pause() abort "{{{2
     return ''
 endfu
 fu! s:should_delete_session() abort "{{{2
-    "                        ┌ :STrack! ø
-    "  ┌─────────────────────┤
-    if s:bang && empty(s:file) && filereadable(s:last_used_session)
-    "                             │
-    "                             └─ a session file was used and its file is readable
-        return 1
-    endif
+    "                            ┌ :STrack! ø
+    "      ┌─────────────────────┤
+    return s:bang && empty(s:file) && filereadable(s:last_used_session)
+    "                                 │
+    "                                 └─ a session file was used and its file is readable
 endfu
 fu! s:should_pause_session() abort "{{{2
-    "  ┌─ no bang
-    "  │          ┌─ :STrack ø
-    "  │          │                ┌─ the current session is being tracked
-    "  │          │                │
-    if !s:bang && empty(s:file) && exists('g:my_session')
-        return 1
-    endif
+    "      ┌─ no bang
+    "      │          ┌─ :STrack ø
+    "      │          │                ┌─ the current session is being tracked
+    "      │          │                │
+    return !s:bang && empty(s:file) && exists('g:my_session')
 endfu
 fu! s:snr() "{{{2
     return matchstr(expand('<sfile>'), '<SNR>\d\+_')
