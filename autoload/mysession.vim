@@ -49,6 +49,13 @@ fu! mysession#restore(file) abort " {{{1
     " because it would wronlgy assume that the session has been loaded in
     " another Vim instance."}}}
 
+    " Update current session file, before loading another one.
+    " Useful, for example, if we empty the arglist just before switching
+    " to another session.
+    " We can't execute `s:track()` directly, because it's local to another
+    " script.
+    doautocmd <nomodeline> my_session BufWinEnter
+
     " If we switch from a session with several tabpages, to another one with
     " just one, all the tabpages from the 1st session (except the first tabpage)
     " are transferred to the new session.
@@ -61,6 +68,11 @@ fu! mysession#restore(file) abort " {{{1
     " manually, to be sure it won't be changed. It happened once:
     " 'shm' was constantly emptied by all session files.
     let shm_save = &shm
+
+    call writefile(filter(readfile(file), 'v:val !~# "^argadd "'), file)
+    "                                      └──────────────────┤
+    "                                                         └ don't restore arglist
+
     "  ┌─ Sometimes, when one of the session contains one of our folded notes,
     "  │  an error is raised. It seems some commands, like `zo`, fail to
     "  │  manipulate a fold, because it doesn't exist. Maybe, the buffer is not
@@ -206,7 +218,7 @@ endfu
 "
 "     "                                          ┌─ ignore 'wildignore'
 "     "                                          │
-"     return if !empty(glob(swapfile_first_file, 1))
+"     return !empty(glob(swapfile_first_file, 1))
 " endfu
 
 fu! mysession#suggest_sessions(lead, line, _pos) abort "{{{1
