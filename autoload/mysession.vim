@@ -22,32 +22,15 @@ fu! mysession#restore(file) abort " {{{1
                 \     ? fnamemodify(a:file, ':p')
                 \     : $HOME.'/.vim/session/'.a:file.'.vim'
 
-    " Don't source the session file if it is:
-    "
-    "         1. NOT readable
-    "         2. already loaded
+    let file = resolve(file)
 
     if !filereadable(file)
-    \ || ( exists('g:my_session') && file ==# g:my_session )
-        return
+        return 'echoerr '.string(fnamemodify(file, ':t')).'." doesn''t exist, or it''s not readable"'
+    elseif s:session_loaded_in_other_instance(file)
+        return 'echoerr '.string(fnamemodify(file, ':t')).'." is already loaded in another Vim instance"'
+    elseif exists('g:my_session') && file ==# g:my_session
+        return 'echoerr '.string(fnamemodify(file, ':t')).'." is already the current session"'
     endif
-    " NOTE: old additional condition {{{
-    "
-    " The next condition would be useful to prevent our autocmd which invokes
-    " `SLoad` from automatically sourcing the same session in 2 different
-    " Vim instances (which would give warning messages because of the swap
-    " files):
-    "
-    "         \ || s:session_loaded_in_other_instance(file)
-    "
-    " But contrary to the name of the function, it can only detect whether
-    " a session has already been loaded in a still-running Vim instance.
-    " It can't detect whether the session is loaded in another Vim instance,
-    " or in the current one.
-    " Besides, it can be useful to switch from a session to another, and come
-    " back later to the original session. This condition would prevent that,
-    " because it would wronlgy assume that the session has been loaded in
-    " another Vim instance."}}}
 
     " Update current session file, before loading another one.
     " Useful, for example, if we empty the arglist just before switching
@@ -73,9 +56,9 @@ fu! mysession#restore(file) abort " {{{1
     "                                      └──────────────────┤
     "                                                         └ don't restore arglist
 
-    "  ┌─ Sometimes, when one of the session contains one of our folded notes,
+    "  ┌─ Sometimes, when the session contains one of our folded notes,
     "  │  an error is raised. It seems some commands, like `zo`, fail to
-    "  │  manipulate a fold, because it doesn't exist. Maybe, the buffer is not
+    "  │  manipulate a fold, because it doesn't exist. Maybe the buffer is not
     "  │  folded yet.
     "  │
     sil! exe 'so '.fnameescape(file)
@@ -141,9 +124,9 @@ fu! mysession#restore(file) abort " {{{1
     "         windo setl list          only affects windows in current tabpage
     "         tabdo windo setl list    affects all windows
 
-    tabdo windo sil! doautocmd BufWinEnter
+    tabdo windo sil! doautocmd <nomodeline> BufWinEnter
     " │   │        │
-    " │   │        └─ we don't want an error to interrupt the process
+    " │   │        └─ an error shouldn't interrupt the process
     " │   └─ iterate over windows
     " └─ iterate over tabpages
 
@@ -164,6 +147,7 @@ fu! mysession#restore(file) abort " {{{1
     endif
 
     call s:rename_tmux_window(file)
+    return ''
 endfu
 
 fu! s:restore_help_settings() abort "{{{1
@@ -205,21 +189,25 @@ fu! s:restore_help_settings() abort "{{{1
     " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
 endfu
 
-" fu! s:session_loaded_in_other_instance(file) abort " {{{1
-"     let some_buffers        = filter(readfile(a:file, '', 20), 'v:val =~# "^badd"')
-"
-"     if empty(some_buffers)
-"         return 0
-"     endif
-"
-"     let first_buffer        = matchstr(some_buffers[0], '^badd +\d\+ \zs.*')
-"     let first_file          = fnamemodify(first_buffer, ':p')
-"     let swapfile_first_file = expand('~/.vim/tmp/swap/').substitute(first_file, '/', '%', 'g').'.swp'
-"
-"     "                                          ┌─ ignore 'wildignore'
-"     "                                          │
-"     return !empty(glob(swapfile_first_file, 1))
-" endfu
+fu! s:session_loaded_in_other_instance(session_file) abort " {{{1
+    let buffers = filter(readfile(a:session_file), 'v:val =~# "^badd"')
+
+    if empty(buffers)
+        return 0
+    endif
+
+    let buffers = map(buffers, "matchstr(v:val, '^badd +\\d\\+ \\zs.*')")
+    call map(buffers, "fnamemodify(v:val, ':p')")
+
+    let swapfiles = map(copy(buffers), "expand('~/.vim/tmp/swap/').substitute(v:val, '/', '%', 'g').'.swp'")
+    call filter(map(swapfiles, 'glob(v:val, 1)'), 'v:val != ""')
+    "                                       │
+    "                                       └─ ignore 'wildignore'
+
+    let a_file_is_currently_loaded = !empty(swapfiles)
+    let but_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
+    return a_file_is_currently_loaded && but_not_in_this_session
+endfu
 
 fu! mysession#suggest_sessions(lead, line, _pos) abort "{{{1
     let dir   = $HOME.'/.vim/session/'

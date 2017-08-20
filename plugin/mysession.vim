@@ -1,15 +1,16 @@
 " Zen {{{1
-" IFF {{{2
 
+" How to understand “iff“ in a sentence?
+" Let's compare “if“ with “iff“ in the following example:
+"
 "                      ┌ B
 " ┌────────────────────┤
 " It will be overwritten IF it looks like a session file.
 "                           └──────────────────────────┤
 "                                                      └ A
-"
 " rewritten formally:
 "
-"     A ⇒ B :  IF it looks like a session file, it will be overwritten
+"     A ⇒ B :  IF it looks like a session file, THEN it will be overwritten
 
 
 "                      ┌ B
@@ -17,18 +18,16 @@
 " It will be overwritten, IF AND ONLY IF it looks like a session file.
 "                                        └──────────────────────────┤
 "                                                                   └ A
-"
 " rewritten formally:
 "
 "      A  ⇒  B  : same as before
-"
-" +    B  ⇒  A  : IF it is overwritten, it looks like a session file
-" OR  ¬A  ⇒ ¬B  : IF it does NOT look like a session file, it will NOT be overwritten
+" +
+"     ¬A  ⇒ ¬B  : IF it does NOT look like a session file, THEN it will NOT be overwritten
 
 
 " Summary:
-" “iff“ = you can read in whatever direction, positively or NEGATIVELY
-"         it's ALWAYS true
+" “iff“ can be read in whatever direction, positively or NEGATIVELY
+"       it's ALWAYS true
 "
 " “iff“ is frequently used to mean `if B then A` + `if ¬B then ¬A`.
 "                                                   ├───────────┘
@@ -107,9 +106,8 @@ augroup END
 "         line   19:
 "         Vim:E492: Not an editor command:             abcd
 "
-" We want our `:STrack` command, and our autocmd, to produce a message
-" similar to a regular Ex command. We don't want the detail of the implementation
-" to leak.
+" We want our `:STrack` command, and our autocmd, to produce a message similar
+" to a regular Ex command. We don't want the detail of the implementation to leak.
 "
 " By using `exe function()`, we can get an error message such as:
 "
@@ -133,7 +131,7 @@ augroup END
 " "}}}
 
 com! -bar -bang -complete=file -nargs=?  STrack    exe s:handle_session(<bang>0, <q-args>)
-com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  call mysession#restore(<q-args>)
+com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  exe mysession#restore(<q-args>)
 
 " Functions "{{{1
 fu! s:file_is_valuable() abort "{{{2
@@ -348,9 +346,9 @@ endfu
 " Currently, `autoload/` IS sourced when we start the first Vim instance,
 " because:
 "           :SLoad
-"           :call mysession#restore()
+"           :exe mysession#restore()
 "
-" There's not much we can do about this.
+" There's not much we can do about that.
 
 
 " This function saves the current session, iff `g:my_session` exists.
@@ -401,6 +399,15 @@ fu! s:track() abort
             "         vim: set ft=vim : (modeline)
             call insert(body, 'let g:my_session = v:this_session', -3)
             call writefile(body, g:my_session)
+
+            " Let Vim know that this session is the last used.
+            " Useful when we do this:
+            "
+            "     :STrack        stop the tracking of the current session
+            "     :STrack new    create and track a new one
+            "     :q             quit Vim
+            "     $ vim          restart Vim
+            let g:MY_LAST_SESSION = fnamemodify(g:my_session, ':t:r')
 
         catch
             " If sth goes wrong now, it will probably go wrong next time.
