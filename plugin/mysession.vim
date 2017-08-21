@@ -1,4 +1,4 @@
-" Zen {{{1
+" iff {{{1
 
 " How to understand “iff“ in a sentence?
 " Let's compare “if“ with “iff“ in the following example:
@@ -131,11 +131,12 @@ augroup END
 " "}}}
 
 com! -bar -bang -complete=file -nargs=?  STrack    exe s:handle_session(<bang>0, <q-args>)
-com! -bar       -complete=customlist,mysession#suggest_sessions -nargs=?  SLoad  exe mysession#restore(<q-args>)
+com! -bar       -complete=customlist,s:suggest_sessions -nargs=?  SLoad  exe s:restore(<q-args>)
 
 " Functions "{{{1
 fu! s:file_is_valuable() abort "{{{2
-    " `:mksession file` fails, because it refuses to overwrite an existing file.
+    " By default, `:mksession file` fails, because `:mksession` refuses to overwrite
+    " an existing file.
     " `:STrack` should behave the same way.
     " With one exception:  if the file isn't valuable, overwrite it anyway.
     "
@@ -143,22 +144,13 @@ fu! s:file_is_valuable() abort "{{{2
     "
     "         - readable
     "         - not empty
-    "         - doesn't look like a session file
-    "           because neither the name nor the contents match
+    "         - doesn't look like a session file, because
+    "           neither its location nor its contents match
 
     return filereadable(s:file)
       \ && getfsize(s:file) > 0
-      \ && s:file !~# 'default\.vim$'
+      \ && fnamemodify(s:file, ':h') !=# s:my_session_dir
       \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
-
-    " What about `:STrack! file`?
-    " `:mksession! file` overwrites `file`.
-    " `:STrack!` should do the same, which is why this function will
-    " return 0 if a bang was given.
-
-    " Zen:
-    " When you implement a new feature, always make it behave like the existing
-    " ones. Don't add inconsistency.
 endfu
 fu! s:handle_session(bang, file) abort " {{{2
     " NOTE:
@@ -185,7 +177,7 @@ fu! s:handle_session(bang, file) abort " {{{2
         " `:STrack` should behave mostly like `:mksession` with the
         " additional benefit of updating the session file.
         "
-        " However, we want 2 additional features:  pausing and deletion.
+        " However, we want 2 additional features:  pause and deletion.
         "
         "         :STrack     pause
         "         :STrack!    delete
@@ -198,6 +190,12 @@ fu! s:handle_session(bang, file) abort " {{{2
 
         let s:file = s:where_do_we_save()
         if empty(s:file) | return '' | endif
+
+        "  ┌─ we only care whether a file is valuable if NO bang is given
+        "  │
+        "  │  Otherwise, we overwrite the file no matter what.
+        "  │  `:mksession! file` overwrites `file`. `:STrack!` should do the same.
+        "  │
         if !s:bang && s:file_is_valuable() | return 'mksession '.fnameescape(s:file) | endif
         "                                           └──────────────────────────────┤
         "                                                                          │
@@ -215,6 +213,7 @@ fu! s:handle_session(bang, file) abort " {{{2
         let error = s:track()
         if empty(error)
             echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
+            call s:rename_tmux_window(s:file)
             return ''
         else
             return error
@@ -227,33 +226,19 @@ fu! s:handle_session(bang, file) abort " {{{2
 endfu
 fu! My_session_status() abort "{{{2
 
-    " From the perspective of sessions, Vim can be in 3 states:
+    " From the perspective of sessions, the environment can be in 3 states:
     "
-    "         - no session has been loaded or saved
+    "         - no session has been loaded / saved
     "
-    "         - a session has been loaded or saved, but isn't tracked by our plugin
+    "         - a session has been loaded / saved, but isn't tracked by our plugin
     "
-    "           NOTE:
-    "           It happens when `g:my_session` is empty, but not `v:this_session`.
-    "           The reverse can NOT happen:
-    "                   `v:this_session` is empty, but not `g:this_session`
+    "         - a session has been loaded / saved, and is being tracked by our plugin
     "
-    "           … because if `g:my_session` isn't empty, it means
-    "           a session has been loaded/saved, and therefore
-    "           `v:this_session` must contain the name of the file which
-    "           was used.
-    "
-    "           IOW, a session CAN be loaded/saved without our plugin
-    "           knowing it. But, a session can NOT be loaded/saved
-    "           without Vim knowing it.
-    "
-    "         - a session is being tracked by our plugin
-
     " We create the variable `state` whose value, 0, 1 or 2, stands for
-    " the state of Vim.
+    " the state of the environment.
     "
     "           ┌─ a session has been loaded/saved
-    "           │                        ┌─ we're in a session tracked by our plugin
+    "           │                        ┌─ it's tracked by our plugin
     "           │                        │
     let state = !empty(v:this_session) + exists('g:my_session')
     "                  │
@@ -261,15 +246,209 @@ fu! My_session_status() abort "{{{2
     "                     to load/save a session;
     "                     if no session has been saved/loaded, it's empty
 
-    " return:
+    " return an item to display in the statusline
     "
-    "         - `∞`     if a session is being tracked
-    "         - `S`     if a session has been loaded/saved, but isn't tracked
-    "         - nothing if no session has been loaded/saved
-    "
-    " The returned value is displayed in the statusline.
-
+    "        ┌─ no session has been loaded/saved
+    "        │     ┌─ a session has been loaded/saved, but isn't tracked
+    "        │     │      ┌─ a session is being tracked
+    "        │     │      │
     return [ '', '[S]', '[∞]' ][state]
+endfu
+fu! s:prepare_restoration(file) abort "{{{2
+    " Update current session file, before loading another one.
+    exe s:track()
+
+    call writefile(filter(readfile(a:file), 'v:val !~# "^argadd "'), a:file)
+    "                                      └──────────────────┤
+    "                                                         └ get rid of arglist
+    "                                                           we don't want to restore it
+
+    " If we switch from a session with several tabpages, to another one with
+    " just one, all the tabpages from the 1st session (except the first tabpage)
+    " are transferred to the new session. We don't want that.
+    sil! tabonly | sil! only
+    "  │
+    "  └─ if there's already only 1 tab, it will display a message
+endfu
+fu! s:rename_tmux_window(file) abort "{{{2
+    "                                               ┌─ remove head (/path/to/)
+    "                                               │ ┌─ remove extension (.vim)
+    "                                               │ │
+    let window_title = string(fnamemodify(a:file, ':t:r'))
+    call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
+
+    augroup my_tmux_window_title
+        au!
+        " We've just renamed the tmux window, so tmux automatically
+        " disabled the 'automatic-rename' option. We'll re-enable it when
+        " we quit Vim.
+        au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
+    augroup END
+endfu
+fu! s:restore(file) abort " {{{2
+    let file = empty(a:file)
+                \ ? s:my_session_dir.'/default.vim'
+                \ : a:file ==# '#'
+                \   ? g:MY_PENULTIMATE_SESSION
+                \   : a:file =~# '/'
+                \     ? fnamemodify(a:file, ':p')
+                \     : s:my_session_dir.'/'.a:file.'.vim'
+
+    let file = resolve(file)
+
+    if !filereadable(file)
+        return 'echoerr '.string(fnamemodify(file, ':t')).'." doesn''t exist, or it''s not readable"'
+    elseif s:session_loaded_in_other_instance(file)
+        return 'echoerr '.string(fnamemodify(file, ':t')).'." is already loaded in another Vim instance"'
+    elseif exists('g:my_session') && file ==# g:my_session
+        return 'echoerr '.string(fnamemodify(file, ':t')).'." is already the current session"'
+    endif
+
+    call s:prepare_restoration(file)
+
+    " Even though we don't include 'options' inside 'ssop', a session file
+    " manipulates the value of 'shm'. We save and restore this option
+    " manually, to be sure it won't be changed. It happened once:
+    " 'shm' was constantly emptied by all session files.
+    let shm_save = &shm
+
+    if exists('g:my_session')
+        let g:MY_PENULTIMATE_SESSION = g:my_session
+    endif
+
+    "  ┌─ Sometimes, when the session contains one of our folded notes,
+    "  │  an error is raised. It seems some commands, like `zo`, fail to
+    "  │  manipulate a fold, because it doesn't exist. Maybe the buffer is not
+    "  │  folded yet.
+    "  │
+    sil! exe 'so '.fnameescape(file)
+    " NOTE: possible issue with other autocmds {{{
+    "
+    " Every custom function that we invoke in any autocmd (vimrc, other plugin)
+    " may interfere with the restoration process.
+    " For an example, have a look at `s:dnb_clean()` in vimrc.
+    "
+    " To prevent any issue, we could restore the session while all autocmds are
+    " disabled, THEN emit the `BufRead` event in all buffers, to execute the
+    " autocmds associated to filetype detection:
+    "
+    "         noautocmd so ~/.vim/session/default.vim
+    "         doautoall filetypedetect BufRead
+    "                   │
+    "                   └─ $VIMRUNTIME/filetype.vim
+    "
+    " But, this would cause other issues:
+    "
+    "       the filetype plugins would be loaded too late for markdown buffers
+    "           → 'fdm', 'fde', 'fdt' would be set too late
+    "           → in the session file, commands handling folds (e.g. `zo`) would
+    "             raise `E490: No fold found`
+    "
+    "       `doautoall filetypedetect BufRead` would only affect the file in
+    "       which the autocmd calling the current function is installed
+    "           → no syntax highlighting everywhere else
+    "           → we would have to delay the command with a timer or maybe
+    "             a fire-once autocmd
+    "
+    " Solution:
+    " In an autocmd which may interfere with the restoration process, test
+    " whether `g:SessionLoad` exists. This variable only exists while a session
+    " is being restored:
+    "
+    "         if exists('g:SessionLoad')
+    "             return
+    "         endif
+"}}}
+
+    let &shm = shm_save
+    let g:MY_LAST_SESSION = g:my_session
+
+    call s:restore_window_local_settings()
+    call s:restore_help_settings_when_needed()
+    call s:rename_tmux_window(file)
+    return ''
+endfu
+fu! s:restore_help_settings() abort "{{{2
+    " For some reason, Vim doesn't restore some settings in a help buffer,
+    " including the syntax highlighting.
+
+    setl ft=help nobuflisted noma ro
+    so $VIMRUNTIME/syntax/help.vim
+
+    augroup restore_help_settings
+        au! * <buffer>
+        au BufRead <buffer> setl ft=help nobuflisted noma ro
+    augroup END
+
+    " TODO:
+    " Isn't there a simpler solution?
+    " Vim doesn't rely on an autocmd to restore the settings of a help buffer.
+    " Confirmed by typing:         au * <buffer=42>
+    "
+    " If we reload a help buffer, without installing an autocmd to restore the
+    " filetype, the latter gets back to `text`.
+    " If we re-open the file with the right `:h tag`, it opens a new window,
+    " with the same `text` file. From there, if we reload the file, it gets
+    " back to `help` in both windows. It happens with and without the 1st
+    " command:
+    "
+    "         setl ft=help nobuflisted noma ro
+    "
+    " I've tried to hook into all the events fired by `:h`, but none worked.
+
+    " NOTE:
+    " We could also do that:
+    "
+    "         exe 'h '.matchstr(expand('%'), '.*/doc/\zs.*\.txt')
+    "         exe "norm! \<c-o>"
+    "         e
+    "
+    " But for some reason, `:e` doesn't do its part. It should immediately
+    " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
+endfu
+
+fu! s:restore_help_settings_when_needed() abort "{{{2
+    " `:bufdo` is executed in the context of the last window of the last tabpage.
+    " It could replace its buffer with another buffer (the one with the biggest number).
+    " We don't want that, so we save the current buffer number, to restore it later.
+    let cur_bufnr = bufnr('%')
+
+    sil! bufdo if expand('%') =~# '/doc/.*\.txt$'
+            \|     call s:restore_help_settings()
+            \| endif
+
+    " I had a `E86` error once (buffer didn't exist anymore).
+    if bufexists(cur_bufnr)
+        exe 'b '.cur_bufnr
+    endif
+endfu
+fu! s:restore_window_local_settings() abort "{{{2
+    let cur_winid = win_getid()
+
+    " We fire `BufWinEnter` in all windows to apply window-local options in
+    " all opened windows. Also, it may be useful to position us at the end of
+    " the changelist (through our autocmd `my_changelist` which listens to this
+    " event).
+    "
+    " Why not simply:
+    "       doautoall BufWinEnter
+    " ?
+    " Because `:doautoall` executes the autocmds in the context of the buffers.
+    " But their purpose is to set WINDOW-local options.
+    " They need to be executed in the context of the windows, not the buffers.
+    "
+    " Watch:
+    "         bufdo setl list          only affects current window
+    "         windo setl list          only affects windows in current tabpage
+    "         tabdo windo setl list    affects all windows
+
+    tabdo windo sil! doautocmd <nomodeline> BufWinEnter
+    " │   │        │
+    " │   │        └─ an error shouldn't interrupt the process
+    " │   └─ iterate over windows
+    " └─ iterate over tabpages
+
+    call win_gotoid(cur_winid)
 endfu
 fu! s:safe_to_load_session() abort "{{{2
     "      ┌─ Vim should be started with NO files to edit.
@@ -284,6 +463,63 @@ fu! s:safe_to_load_session() abort "{{{2
     "                                              it's possible that some files of the session are
     "                                              already loaded in that instance
     "                                              loading them in a 2nd instance could raise errors (E325)
+endfu
+
+fu! s:session_loaded_in_other_instance(session_file) abort " {{{2
+    let buffers = filter(readfile(a:session_file), 'v:val =~# "^badd"')
+
+    if empty(buffers)
+        return 0
+    endif
+
+    " NOTE: Never assign to a variable, the output of a function which operates{{{
+    " in-place on a list:  map()  filter()  reverse()  sort()  uniq()
+    " Unless, the list is the output of another function (including `copy()`):
+    "
+    "         let list = map([1,2,3], 'v:val + 1')             ✘
+    "
+    "         call map([1,2,3], 'v:val + 1')                   ✔
+    "         let list = map(copy([1,2,3]), 'v:val + 1')       ✔
+    "         let list = map(tabpagebuflist(), 'v:val + 1')    ✔
+    "
+    " Why?
+    " It gives you the wrong idea that the contents of the variable is a copy
+    " of the original list/dictionary.
+    " Ex:
+    "
+    "         let list1 = [1,2,3]
+    "         let list2 = map(list1, 'v:val + 1')
+    "
+    " You may think that `list2` is a copy of `list1`, and that changing `list2`
+    " shouldn't affect `list1`. Wrong. `list2`  is just another reference
+    " pointing to `list1`. Proof:
+    "
+    "         call map(list2, 'v:val + 2')
+    "         → increments all elements of `list2`, but also all elements of `list1`
+    "
+    " A less confusing way of writing this code would have been:
+    "
+    "         let list1 = [1,2,3,4,5]
+    "         call map(list1, 'v:val + 1')
+    "
+    " Without assigning the output of `map()` to a variable, we don't get the
+    " idea that we have a copy of `list1`. And if we need one, we'll immediately
+    " think about `copy()`:
+    "
+    "         let list1 = [1,2,3,4,5]
+    "         let list2 = map(copy(list1), 'v:val + 1')
+"}}}
+    call map(buffers, "matchstr(v:val, '^badd +\\d\\+ \\zs.*')")
+    call map(buffers, "fnamemodify(v:val, ':p')")
+
+    let swapfiles = map(copy(buffers), "expand('~/.vim/tmp/swap/').substitute(v:val, '/', '%', 'g').'.swp'")
+    call filter(map(swapfiles, 'glob(v:val, 1)'), 'v:val != ""')
+    "                                       │
+    "                                       └─ ignore 'wildignore'
+
+    let a_file_is_currently_loaded = !empty(swapfiles)
+    let but_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
+    return a_file_is_currently_loaded && but_not_in_this_session
 endfu
 
 fu! s:session_delete() abort "{{{2
@@ -308,6 +544,7 @@ fu! s:session_delete() abort "{{{2
 endfu
 fu! s:session_pause() abort "{{{2
     echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
+    let g:MY_PENULTIMATE_SESSION = g:my_session
     unlet g:my_session
     " don't empty `v:this_session`: we need it if we resume later
     return ''
@@ -329,27 +566,11 @@ endfu
 fu! s:snr() "{{{2
     return matchstr(expand('<sfile>'), '<SNR>\d\+_')
 endfu
+fu! s:suggest_sessions(lead, line, _pos) abort "{{{2
+    let files = glob(s:my_session_dir.'/*'.a:lead.'*', 0, 1)
+    return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
+endfu
 " track {{{2
-
-" We can't make `track()` public and call it `mysession#track()`.
-"
-" It's called by the autocmd listening to `BufWinEnter`, so it would be called
-" automatically whenever we start Vim. Even in a 2nd Vim instance, where no session
-" is restored.
-" Even if we write it in `plugin/`, the mere fact of calling
-" `mysession#track()` would cause Vim to source any file called mysession.vim,
-" including the one in `autoload/`.
-"
-" Conclusion:   `autoload/` would be ALWAYS sourced.
-"
-" NOTE:
-" Currently, `autoload/` IS sourced when we start the first Vim instance,
-" because:
-"           :SLoad
-"           :exe mysession#restore()
-"
-" There's not much we can do about that.
-
 
 " This function saves the current session, iff `g:my_session` exists.
 " In the session file, it adds the line:
@@ -407,7 +628,7 @@ fu! s:track() abort
             "     :STrack new    create and track a new one
             "     :q             quit Vim
             "     $ vim          restart Vim
-            let g:MY_LAST_SESSION = fnamemodify(g:my_session, ':t:r')
+            let g:MY_LAST_SESSION = g:my_session
 
         catch
             " If sth goes wrong now, it will probably go wrong next time.
@@ -430,10 +651,10 @@ fu! s:where_do_we_save() abort "{{{2
         if !empty(s:last_used_session)
             return s:last_used_session
         else
-            if !isdirectory($HOME.'/.vim/session')
-                call mkdir($HOME.'/.vim/session')
+            if !isdirectory(s:my_session_dir)
+                call mkdir(s:my_session_dir)
             endif
-            return $HOME.'/.vim/session/default.vim'
+            return s:my_session_dir.'/default.vim'
         endif
 
     " :STrack dir/
@@ -444,7 +665,7 @@ fu! s:where_do_we_save() abort "{{{2
     else
         return s:file =~# '/'
                     \ ? fnamemodify(s:file, ':p')
-                    \ : 'session/'.s:file.'.vim'
+                    \ : s:my_session_dir.'/'.s:file.'.vim'
     endif
 endfu
 " Usage {{{1
@@ -482,3 +703,12 @@ endfu
 "
 " Loading a session created with `:STrack` automatically resumes updates
 " to that file.
+"
+"
+"     :SLoad#
+"
+" Load the previous session.
+
+" Variables {{{1
+
+let s:my_session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
