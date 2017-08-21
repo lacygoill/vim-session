@@ -1,37 +1,9 @@
-" iff {{{1
+" GUARD {{{1
 
-" How to understand “iff“ in a sentence?
-" Let's compare “if“ with “iff“ in the following example:
-"
-"                      ┌ B
-" ┌────────────────────┤
-" It will be overwritten IF it looks like a session file.
-"                           └──────────────────────────┤
-"                                                      └ A
-" rewritten formally:
-"
-"     A ⇒ B :  IF it looks like a session file, THEN it will be overwritten
-
-
-"                      ┌ B
-" ┌────────────────────┤
-" It will be overwritten, IF AND ONLY IF it looks like a session file.
-"                                        └──────────────────────────┤
-"                                                                   └ A
-" rewritten formally:
-"
-"      A  ⇒  B  : same as before
-" +
-"     ¬A  ⇒ ¬B  : IF it does NOT look like a session file, THEN it will NOT be overwritten
-
-
-" Summary:
-" “iff“ can be read in whatever direction, positively or NEGATIVELY
-"       it's ALWAYS true
-"
-" “iff“ is frequently used to mean `if B then A` + `if ¬B then ¬A`.
-"                                                   ├───────────┘
-"             this whole part is added by the 2nd f ┘
+if exists('g:loaded_mysession')
+    finish
+endif
+let g:loaded_mysession = 1
 
 " Autocmds {{{1
 
@@ -149,9 +121,10 @@ fu! s:file_is_valuable() abort "{{{2
 
     return filereadable(s:file)
       \ && getfsize(s:file) > 0
-      \ && fnamemodify(s:file, ':h') !=# s:my_session_dir
+      \ && fnamemodify(s:file, ':h') !=# s:session_dir
       \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
 endfu
+
 fu! s:handle_session(bang, file) abort " {{{2
     " NOTE:
     " We can't move `handle_session()` in `autoload/` and make it public.
@@ -224,52 +197,24 @@ fu! s:handle_session(bang, file) abort " {{{2
         unlet! s:bang s:file s:last_used_session
     endtry
 endfu
-fu! My_session_status() abort "{{{2
 
-    " From the perspective of sessions, the environment can be in 3 states:
-    "
-    "         - no session has been loaded / saved
-    "
-    "         - a session has been loaded / saved, but isn't tracked by our plugin
-    "
-    "         - a session has been loaded / saved, and is being tracked by our plugin
-    "
-    " We create the variable `state` whose value, 0, 1 or 2, stands for
-    " the state of the environment.
-    "
-    "           ┌─ a session has been loaded/saved
-    "           │                        ┌─ it's tracked by our plugin
-    "           │                        │
-    let state = !empty(v:this_session) + exists('g:my_session')
-    "                  │
-    "                  └─ stores the path to the last file which has been used
-    "                     to load/save a session;
-    "                     if no session has been saved/loaded, it's empty
-
-    " return an item to display in the statusline
-    "
-    "        ┌─ no session has been loaded/saved
-    "        │     ┌─ a session has been loaded/saved, but isn't tracked
-    "        │     │      ┌─ a session is being tracked
-    "        │     │      │
-    return [ '', '[S]', '[∞]' ][state]
-endfu
 fu! s:prepare_restoration(file) abort "{{{2
     " Update current session file, before loading another one.
     exe s:track()
 
     call writefile(filter(readfile(a:file), 'v:val !~# "^argadd "'), a:file)
-    "                                      └──────────────────┤
-    "                                                         └ get rid of arglist
-    "                                                           we don't want to restore it
+    "                                        └──────────────────┤
+    "                                                           └ get rid of arglist
+    "                                                             we don't want to restore it
 
-    " If we switch from a session with several tabpages, to another one with
-    " just one, all the tabpages from the 1st session (except the first tabpage)
-    " are transferred to the new session. We don't want that.
+    " If we switch from a session with several tabpages, to another with just one,
+    " all the tabpages from the 1st session (except the first tabpage)
+    " stay in the new session. We don't want that.
     sil! tabonly | sil! only
     "  │
     "  └─ if there's already only 1 tab, it will display a message
 endfu
+
 fu! s:rename_tmux_window(file) abort "{{{2
     "                                               ┌─ remove head (/path/to/)
     "                                               │ ┌─ remove extension (.vim)
@@ -285,14 +230,15 @@ fu! s:rename_tmux_window(file) abort "{{{2
         au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
     augroup END
 endfu
+
 fu! s:restore(file) abort " {{{2
     let file = empty(a:file)
-                \ ? s:my_session_dir.'/default.vim'
+                \ ? s:session_dir.'/default.vim'
                 \ : a:file ==# '#'
                 \   ? g:MY_PENULTIMATE_SESSION
                 \   : a:file =~# '/'
                 \     ? fnamemodify(a:file, ':p')
-                \     : s:my_session_dir.'/'.a:file.'.vim'
+                \     : s:session_dir.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
@@ -368,6 +314,7 @@ fu! s:restore(file) abort " {{{2
     call s:rename_tmux_window(file)
     return ''
 endfu
+
 fu! s:restore_help_settings() abort "{{{2
     " For some reason, Vim doesn't restore some settings in a help buffer,
     " including the syntax highlighting.
@@ -422,6 +369,7 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
         exe 'b '.cur_bufnr
     endif
 endfu
+
 fu! s:restore_window_local_settings() abort "{{{2
     let cur_winid = win_getid()
 
@@ -450,6 +398,7 @@ fu! s:restore_window_local_settings() abort "{{{2
 
     call win_gotoid(cur_winid)
 endfu
+
 fu! s:safe_to_load_session() abort "{{{2
     "      ┌─ Vim should be started with NO files to edit.
     "      │  If there are files to edit we don't want their buffers to be
@@ -542,6 +491,7 @@ fu! s:session_delete() abort "{{{2
     let v:this_session = ''
     return ''
 endfu
+
 fu! s:session_pause() abort "{{{2
     echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
     let g:MY_PENULTIMATE_SESSION = g:my_session
@@ -549,6 +499,7 @@ fu! s:session_pause() abort "{{{2
     " don't empty `v:this_session`: we need it if we resume later
     return ''
 endfu
+
 fu! s:should_delete_session() abort "{{{2
     "                            ┌ :STrack! ø
     "      ┌─────────────────────┤
@@ -556,6 +507,7 @@ fu! s:should_delete_session() abort "{{{2
     "                                 │
     "                                 └─ a session file was used and its file is readable
 endfu
+
 fu! s:should_pause_session() abort "{{{2
     "      ┌─ no bang
     "      │          ┌─ :STrack ø
@@ -563,23 +515,66 @@ fu! s:should_pause_session() abort "{{{2
     "      │          │                │
     return !s:bang && empty(s:file) && exists('g:my_session')
 endfu
+
 fu! s:snr() "{{{2
     return matchstr(expand('<sfile>'), '<SNR>\d\+_')
 endfu
+
+fu! mysession#status() abort "{{{2
+
+    " From the perspective of sessions, the environment can be in 3 states:
+    "
+    "         - no session has been loaded / saved
+    "
+    "         - a session has been loaded / saved, but is NOT tracked by our plugin
+    "
+    "         - a session has been loaded / saved, and IS being tracked by our plugin
+
+    " We create the variable `state` whose value, 0, 1 or 2, stands for
+    " the state of the environment.
+    "
+    "           ┌─ a session has been loaded/saved
+    "           │                        ┌─ it's tracked by our plugin
+    "           │                        │
+    let state = !empty(v:this_session) + exists('g:my_session')
+    "                  │
+    "                  └─ stores the path to the last file which has been used
+    "                     to load/save a session;
+    "                     if no session has been saved/loaded, it's empty
+    "
+    " NOTE:
+    " We can use this sum to express the state because there's no ambiguity.
+    " Only 1 state can produce 0.
+    " Only 1 state can produce 1.
+    " Only 1 state can produce 2.
+    "
+    " If 2 states could produce 1, we could NOT use this sum.
+    " More generally, we need a bijective, or at least injective, math function,
+    " so that no matter the value we get, we can retrieve the exact state
+    " which produced it.
+
+    " return an item to display in the statusline
+    "
+    "        ┌─ no session has been loaded/saved
+    "        │     ┌─ a session has been loaded/saved, but isn't tracked
+    "        │     │      ┌─ a session is being tracked
+    "        │     │      │
+    return [ '', '[S]', '[∞]' ][state]
+endfu
+
 fu! s:suggest_sessions(lead, line, _pos) abort "{{{2
-    let files = glob(s:my_session_dir.'/*'.a:lead.'*', 0, 1)
+    let files = glob(s:session_dir.'/*'.a:lead.'*', 0, 1)
     return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
 endfu
-" track {{{2
 
-" This function saves the current session, iff `g:my_session` exists.
-" In the session file, it adds the line:
-"         let g:my_session = v:this_session
-"
-" … so that the next time we load the session, the plugin knows that it must
-" track it automatically.
+fu! s:track() abort "{{{2
+    " This function saves the current session, iff `g:my_session` exists.
+    " In the session file, it adds the line:
+    "         let g:my_session = v:this_session
+    "
+    " … so that the next time we load the session, the plugin knows that it must
+    " track it automatically.
 
-fu! s:track() abort
     if exists('g:SessionLoad')
         " `g:SessionLoad` exists temporarily while a session is loading.
         " See: :h SessionLoad-variable
@@ -644,17 +639,17 @@ fu! s:track() abort
     endif
     return ''
 endfu
-fu! s:where_do_we_save() abort "{{{2
 
+fu! s:where_do_we_save() abort "{{{2
     " :STrack ø
     if empty(s:file)
         if !empty(s:last_used_session)
             return s:last_used_session
         else
-            if !isdirectory(s:my_session_dir)
-                call mkdir(s:my_session_dir)
+            if !isdirectory(s:session_dir)
+                call mkdir(s:session_dir)
             endif
-            return s:my_session_dir.'/default.vim'
+            return s:session_dir.'/default.vim'
         endif
 
     " :STrack dir/
@@ -665,9 +660,10 @@ fu! s:where_do_we_save() abort "{{{2
     else
         return s:file =~# '/'
                     \ ? fnamemodify(s:file, ':p')
-                    \ : s:my_session_dir.'/'.s:file.'.vim'
+                    \ : s:session_dir.'/'.s:file.'.vim'
     endif
 endfu
+
 " Usage {{{1
 
 "     :STrack file
@@ -711,4 +707,4 @@ endfu
 
 " Variables {{{1
 
-let s:my_session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
+let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
