@@ -17,27 +17,13 @@ augroup my_session
                       \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', 'default')
                       \| endif
 
-    " NOTE: The next autocmd serves 2 purposes:{{{
+    " NOTE: The next autocmd serves 2 purposes:
     "
     "     1. automatically save the current session, as soon as `g:my_session`
     "        pops into existence
     "
     "     2. update the session file frequently, and as long as `g:my_session` exists
     "        IOW, track the session
-    "
-    " We need the autocmd to be in `plugin/`.
-    " Otherwise, if we move it inside `autoload/`, it would resume tracking
-    " a session only if it has been loaded through `:STrack`, not through
-    " a simple `:source`. It would give this:
-    "
-    "         :STrack …
-    "         → call s:handle_session()
-    "         → source autoload/mysession.vim
-    "         → install autocmd
-    "         → resume tracking
-    "
-    " The tracking should resume no matter how we sourced a session file.
-"}}}
 
     "                            ┌─ if sth goes wrong, the function returns the string:
     "                            │       'echoerr '.string(v:exception)
@@ -126,11 +112,6 @@ fu! s:file_is_valuable() abort "{{{2
 endfu
 
 fu! s:handle_session(bang, file) abort " {{{2
-    " NOTE:
-    " We can't move `handle_session()` in `autoload/` and make it public.
-    " Because it calls `track()` which must be script-local.
-
-
     " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
     " script-local scope, to NOT have to pass them as arguments to various
     " functions:
@@ -183,6 +164,12 @@ fu! s:handle_session(bang, file) abort " {{{2
         let g:my_session = s:file
         " let `track()` know that it must save & track the current session
 
+        " Why not simply return `s:track()`, and move the `echo` statement in
+        " the latter?
+        " `s:track()` is frequently called by the autocmd listening to
+        " BufWinEnter. We don't want the message to be echo'ed all the time.
+        " The message, and the renaming of the tmux pane, should only occur
+        " when we track a new session.
         let error = s:track()
         if empty(error)
             echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
@@ -233,12 +220,12 @@ endfu
 
 fu! s:restore(file) abort " {{{2
     let file = empty(a:file)
-                \ ? s:session_dir.'/default.vim'
-                \ : a:file ==# '#'
-                \   ? g:MY_PENULTIMATE_SESSION
-                \   : a:file =~# '/'
-                \     ? fnamemodify(a:file, ':p')
-                \     : s:session_dir.'/'.a:file.'.vim'
+            \?     s:session_dir.'/default.vim'
+            \: a:file ==# '#'
+            \?     g:MY_PENULTIMATE_SESSION
+            \: a:file =~# '/'
+            \?     fnamemodify(a:file, ':p')
+            \:     s:session_dir.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
@@ -659,8 +646,8 @@ fu! s:where_do_we_save() abort "{{{2
     " :STrack file
     else
         return s:file =~# '/'
-                    \ ? fnamemodify(s:file, ':p')
-                    \ : s:session_dir.'/'.s:file.'.vim'
+            \?     fnamemodify(s:file, ':p')
+            \:     s:session_dir.'/'.s:file.'.vim'
     endif
 endfu
 
