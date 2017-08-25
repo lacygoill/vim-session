@@ -83,44 +83,7 @@ augroup END
 
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
-com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  call s:rename(<q-args>)
-
-" com! -bar -nargs=1 -bang -complete=customlist,s:rename_complete Rename  Move<bang> %:h/<args>
-fu! s:rename_complete(lead, _line, _pos) abort
-    let prefix = expand('%:p:h').'/'
-    let files  = glob(prefix.a:lead.'*', 0, 1)
-    call filter(files, 'simplify(v:val) !=# simplify(expand("%:p"))')
-    return map(files, 'v:val[strlen(prefix) : -1] . (isdirectory(v:val) ? "/" : "")') + ['../']
-endfu
-
-" com! -bar -nargs=1 -bang -complete=file Move call s:move(<q-args>, <bang>0)
-fu! s:rename(new_name) abort
-    let src = g:my_session
-    let dst = expand(s:session_dir.'/'.a:new_name.'.vim')
-
-    call s:rename_tmux_window(dst)
-
-    if isdirectory(dst) || dst[-1:-1] ==# '/'
-        let dst .= (dst[-1:-1] ==# '/' ? '' : '/').fnamemodify(src, ':t')
-    endif
-    if !isdirectory(fnamemodify(dst, ':h'))
-        call mkdir(fnamemodify(dst, ':h'), 'p')
-    endif
-    let dst = substitute(simplify(dst), '^\.\/', '', '')
-    if !a:bang && filereadable(dst)
-        exe 'keepalt saveas '.fnameescape(dst)
-    elseif rename(src, dst)
-        echoerr 'Failed to rename '.string(src).' to '.string(dst)
-    else
-        setl modified
-        exe 'keepalt saveas! '.fnameescape(dst)
-        if src !=# expand('%:p')
-            exe 'bwipe '.fnameescape(src)
-        endif
-        filetype detect
-    endif
-    filetype detect
-endfu
+com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  echoerr s:rename(<q-args>)
 
 " Functions "{{{1
 fu! s:file_is_valuable() abort "{{{2
@@ -348,7 +311,17 @@ fu! s:prepare_restoration(file) abort "{{{2
     "  └─ if there's already only 1 tab, it will display a message
 endfu
 
-fu! s:rename(file) abort "{{{2
+fu! s:rename(new_name) abort "{{{2
+    let src = g:my_session
+    let dst = expand(s:session_dir.'/'.a:new_name.'.vim')
+
+    if rename(src, dst)
+        return 'Failed to rename '.string(src).' to '.string(dst)
+    else
+        let g:my_session = dst
+        call s:rename_tmux_window(dst)
+    endif
+    return ''
 endfu
 
 fu! s:rename_tmux_window(file) abort "{{{2
