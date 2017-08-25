@@ -325,6 +325,10 @@ fu! s:rename(new_name) abort "{{{2
 endfu
 
 fu! s:rename_tmux_window(file) abort "{{{2
+    if !exists('$TMUX')
+        return
+    endif
+
     "                                               ┌─ remove head (/path/to/)
     "                                               │ ┌─ remove extension (.vim)
     "                                               │ │
