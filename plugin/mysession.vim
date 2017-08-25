@@ -1,10 +1,3 @@
-" GUARD {{{1
-
-if exists('g:loaded_mysession')
-    finish
-endif
-let g:loaded_mysession = 1
-
 " Autocmds {{{1
 
 augroup my_session
@@ -88,8 +81,46 @@ augroup END
 " the error, because it will happen outside of a function.
 " "}}}
 
-com! -bar -bang -complete=file -nargs=?  STrack    exe s:handle_session(<bang>0, <q-args>)
-com! -bar       -complete=customlist,s:suggest_sessions -nargs=?  SLoad  exe s:restore(<q-args>)
+com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
+com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
+com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  call s:rename(<q-args>)
+
+" com! -bar -nargs=1 -bang -complete=customlist,s:rename_complete Rename  Move<bang> %:h/<args>
+fu! s:rename_complete(lead, _line, _pos) abort
+    let prefix = expand('%:p:h').'/'
+    let files  = glob(prefix.a:lead.'*', 0, 1)
+    call filter(files, 'simplify(v:val) !=# simplify(expand("%:p"))')
+    return map(files, 'v:val[strlen(prefix) : -1] . (isdirectory(v:val) ? "/" : "")') + ['../']
+endfu
+
+" com! -bar -nargs=1 -bang -complete=file Move call s:move(<q-args>, <bang>0)
+fu! s:rename(new_name) abort
+    let src = g:my_session
+    let dst = expand(s:session_dir.'/'.a:new_name.'.vim')
+
+    call s:rename_tmux_window(dst)
+
+    if isdirectory(dst) || dst[-1:-1] ==# '/'
+        let dst .= (dst[-1:-1] ==# '/' ? '' : '/').fnamemodify(src, ':t')
+    endif
+    if !isdirectory(fnamemodify(dst, ':h'))
+        call mkdir(fnamemodify(dst, ':h'), 'p')
+    endif
+    let dst = substitute(simplify(dst), '^\.\/', '', '')
+    if !a:bang && filereadable(dst)
+        exe 'keepalt saveas '.fnameescape(dst)
+    elseif rename(src, dst)
+        echoerr 'Failed to rename '.string(src).' to '.string(dst)
+    else
+        setl modified
+        exe 'keepalt saveas! '.fnameescape(dst)
+        if src !=# expand('%:p')
+            exe 'bwipe '.fnameescape(src)
+        endif
+        filetype detect
+    endif
+    filetype detect
+endfu
 
 " Functions "{{{1
 fu! s:file_is_valuable() abort "{{{2
@@ -106,9 +137,9 @@ fu! s:file_is_valuable() abort "{{{2
     "           neither its location nor its contents match
 
     return filereadable(s:file)
-      \ && getfsize(s:file) > 0
-      \ && fnamemodify(s:file, ':h') !=# s:session_dir
-      \ && readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
+      \&&  getfsize(s:file) > 0
+      \&&  fnamemodify(s:file, ':h')  !=# s:session_dir
+      \&&  readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
 endfu
 
 fu! s:handle_session(bang, file) abort " {{{2
@@ -185,40 +216,28 @@ fu! s:handle_session(bang, file) abort " {{{2
     endtry
 endfu
 
-fu! s:prepare_restoration(file) abort "{{{2
-    " Update current session file, before loading another one.
-    exe s:track()
+fu! s:load(file) abort " {{{2
+    "   ┌─ 1st restoration:  1    !(-1 + 1)
+    "   │  2nd "          :  0    !(1 + 1)
+    "   │  3rd "          :  0    !(0 + 1)
+    "   │  …
+    let s:first_restoration = !(get(s:, 'first_restoration', -1) + 1)
+    " How did we find the formula?
+    " Simple solution, use a counter:
+    "
+    "         let s:counter += get(s:, 'counter', 0) + 1
+    "
+    " Pb: all the values of the counter will be true.
+    " Solution: start counting from -1, instead of 0.
+    "
+    "         let s:counter += get(s:, 'counter', -1) + 1
+    "
+    " Pb: the 1st value will be false, the next ones will be true.
+    " We need the opposite.
+    " Solution: invert the value.
+    "
+    "         let s:counter += !(get(s:, 'counter', -1) + 1)
 
-    call writefile(filter(readfile(a:file), 'v:val !~# "^argadd "'), a:file)
-    "                                        └──────────────────┤
-    "                                                           └ get rid of arglist
-    "                                                             we don't want to restore it
-
-    " If we switch from a session with several tabpages, to another with just one,
-    " all the tabpages from the 1st session (except the first tabpage)
-    " stay in the new session. We don't want that.
-    sil! tabonly | sil! only
-    "  │
-    "  └─ if there's already only 1 tab, it will display a message
-endfu
-
-fu! s:rename_tmux_window(file) abort "{{{2
-    "                                               ┌─ remove head (/path/to/)
-    "                                               │ ┌─ remove extension (.vim)
-    "                                               │ │
-    let window_title = string(fnamemodify(a:file, ':t:r'))
-    call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
-
-    augroup my_tmux_window_title
-        au!
-        " We've just renamed the tmux window, so tmux automatically
-        " disabled the 'automatic-rename' option. We'll re-enable it when
-        " we quit Vim.
-        au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
-    augroup END
-endfu
-
-fu! s:restore(file) abort " {{{2
     let file = empty(a:file)
             \?     s:session_dir.'/default.vim'
             \: a:file ==# '#'
@@ -245,8 +264,18 @@ fu! s:restore(file) abort " {{{2
     " 'shm' was constantly emptied by all session files.
     let shm_save = &shm
 
+    " Before restoring a session, we need to set the previous one (for `:SLoad#`).
+    " The previous one is:
+    "         - the current tracked session, if there's one
+    "         - or the last tracked session, "
     if exists('g:my_session')
         let g:MY_PENULTIMATE_SESSION = g:my_session
+    " If we've paused the tracking of a session, `g:my_session` won't exist.
+    " But, `g:MY_LAST_SESSION` still exists. Use it as the alternative
+    " session, but not during Vim's startup (otherwise we would lose the
+    " alternative session whenever we start Vim).
+    elseif exists('g:MY_LAST_SESSION') && !s:first_restoration
+        let g:MY_PENULTIMATE_SESSION = g:MY_LAST_SESSION
     endif
 
     "  ┌─ Sometimes, when the session contains one of our folded notes,
@@ -300,6 +329,42 @@ fu! s:restore(file) abort " {{{2
     call s:restore_help_settings_when_needed()
     call s:rename_tmux_window(file)
     return ''
+endfu
+
+fu! s:prepare_restoration(file) abort "{{{2
+    " Update current session file, before loading another one.
+    exe s:track()
+
+    call writefile(filter(readfile(a:file), 'v:val !~# "^argadd "'), a:file)
+    "                                        └──────────────────┤
+    "                                                           └ get rid of arglist
+    "                                                             we don't want to restore it
+
+    " If we switch from a session with several tabpages, to another with just one,
+    " all the tabpages from the 1st session (except the first tabpage)
+    " stay in the new session. We don't want that.
+    sil! tabonly | sil! only
+    "  │
+    "  └─ if there's already only 1 tab, it will display a message
+endfu
+
+fu! s:rename(file) abort "{{{2
+endfu
+
+fu! s:rename_tmux_window(file) abort "{{{2
+    "                                               ┌─ remove head (/path/to/)
+    "                                               │ ┌─ remove extension (.vim)
+    "                                               │ │
+    let window_title = string(fnamemodify(a:file, ':t:r'))
+    call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
+
+    augroup my_tmux_window_title
+        au!
+        " We've just renamed the tmux window, so tmux automatically
+        " disabled the 'automatic-rename' option. We'll re-enable it when
+        " we quit Vim.
+        au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
+    augroup END
 endfu
 
 fu! s:restore_help_settings() abort "{{{2
@@ -387,18 +452,25 @@ fu! s:restore_window_local_settings() abort "{{{2
 endfu
 
 fu! s:safe_to_load_session() abort "{{{2
-    "      ┌─ Vim should be started with NO files to edit.
-    "      │  If there are files to edit we don't want their buffers to be
-    "      │  immediately lost by a restored session.
-    "      │
-    "      │          ┌─ a session shouldn't be loaded when we use Vim in a pipeline
-    "      │          │
-    return !argc() && !get(s:, 'read_stdin', 0) && len(systemlist('pgrep "^[egn]?vim?$|view"')) < 2
-    "                                              │
-    "                                              └─ if a Vim instance is already running
-    "                                              it's possible that some files of the session are
-    "                                              already loaded in that instance
-    "                                              loading them in a 2nd instance could raise errors (E325)
+    return !argc()
+       \&& !get(s:, 'read_stdin', 0)
+       \&& len(systemlist('pgrep "^[egn]?vim?$|view"')) < 2
+       \&& filereadable(get(g:, 'MY_LAST_SESSION', 'default'))
+
+    " It's safe to automatically load a session during Vim's sontartup iff:
+    "
+    "     Vim is started with no files to edit.
+    "     If there are files to edit we don't want their buffers to be
+    "     immediately lost by a restored session.
+    "
+    "     Vim isn't used in a pipeline.
+    "
+    "     There's no other Vim instance.
+    "     Otherwise, it's possible that some files of the session are already
+    "     loaded in that other instance.
+    "     Loading them in a 2nd instance could raise errors (E325)
+    "
+    "     There's a readable session file to load.
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort " {{{2
@@ -454,8 +526,8 @@ fu! s:session_loaded_in_other_instance(session_file) abort " {{{2
     "                                       └─ ignore 'wildignore'
 
     let a_file_is_currently_loaded = !empty(swapfiles)
-    let but_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
-    return a_file_is_currently_loaded && but_not_in_this_session
+    let it_is_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
+    return a_file_is_currently_loaded && it_is_not_in_this_session
 endfu
 
 fu! s:session_delete() abort "{{{2
@@ -550,7 +622,7 @@ fu! mysession#status() abort "{{{2
 endfu
 
 fu! s:suggest_sessions(lead, line, _pos) abort "{{{2
-    let files = glob(s:session_dir.'/*'.a:lead.'*', 0, 1)
+    let files = glob(s:session_dir.'/*'.a:lead.'*.vim', 0, 1)
     return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
 endfu
 
@@ -572,10 +644,10 @@ fu! s:track() abort "{{{2
         "
         " During the restoration process, `BufWinEnter` would be fired several
         " times. Every time, the current function would try to update the session
-        " file. This would overwrite the latter, while it's being used to restore
-        " the session. Don't do that.
+        " file. This would overwrite the file, while it's being used to restore
+        " the session. We don't want that.
         "
-        " Our session file will be updated next time (`BufWinEnter`, `TabClosed`,
+        " The session file will be updated next time (`BufWinEnter`, `TabClosed`,
         " `VimLeavePre`).
 
         return ''
@@ -630,13 +702,13 @@ endfu
 fu! s:where_do_we_save() abort "{{{2
     " :STrack ø
     if empty(s:file)
-        if !empty(s:last_used_session)
-            return s:last_used_session
-        else
+        if empty(s:last_used_session)
             if !isdirectory(s:session_dir)
                 call mkdir(s:session_dir)
             endif
             return s:session_dir.'/default.vim'
+        else
+            return s:last_used_session
         endif
 
     " :STrack dir/
