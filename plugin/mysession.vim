@@ -431,10 +431,10 @@ endfu
 fu! s:safe_to_load_session() abort "{{{2
     return !argc()
        \&& !get(s:, 'read_stdin', 0)
-       \&& len(systemlist('pgrep "^[egn]?vim?$|view"')) < 2
        \&& filereadable(get(g:, 'MY_LAST_SESSION', 'default'))
+       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', 'default'))
 
-    " It's safe to automatically load a session during Vim's sontartup iff:
+    " It's safe to automatically load a session during Vim's startup iff:
     "
     "     Vim is started with no files to edit.
     "     If there are files to edit we don't want their buffers to be
@@ -442,12 +442,10 @@ fu! s:safe_to_load_session() abort "{{{2
     "
     "     Vim isn't used in a pipeline.
     "
-    "     There's no other Vim instance.
-    "     Otherwise, it's possible that some files of the session are already
-    "     loaded in that other instance.
-    "     Loading them in a 2nd instance could raise errors (E325)
-    "
     "     There's a readable session file to load.
+    "
+    "     No file in the session is already loaded in other instance.
+    "     Otherwise, loading it in a 2nd instance would raise the error E325.
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort " {{{2
