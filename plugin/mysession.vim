@@ -288,8 +288,8 @@ fu! s:load(file) abort " {{{2
     let &shm = shm_save
     let g:MY_LAST_SESSION = g:my_session
 
-    call s:restore_window_local_settings()
     call s:restore_help_settings_when_needed()
+    call s:restore_window_local_settings()
     call s:rename_tmux_window(file)
     return ''
 endfu
