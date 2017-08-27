@@ -735,8 +735,8 @@ endfu
 "     • looks like a session file (according to its name or its contents)
 "
 " Update the file whenever `BufWinEnter`, `TabClosed` or `VimLeavePre` is fired.
-"
-"
+
+
 "     :STrack dir
 "
 " Invoke `:STrack` on `dir/default.vim`.
@@ -748,8 +748,8 @@ endfu
 " If the tracking of a session is paused:   resume it
 " If no session is being tracked, start tracking the current session in
 " ~/.vim/session/default.vim
-"
-"
+
+
 "     :STrack!
 "
 " If no session is being tracked, begin the tracking.
@@ -759,11 +759,24 @@ endfu
 "
 " Loading a session created with `:STrack` automatically resumes updates
 " to that file.
+
+
+"     :SDelete
+"     :SRename foo
 "
-"
+" Delete current session.
+" Rename current session into `foo`.
+
+
 "     :SLoad#
 "
 " Load the previous session.
+
+
+"     :SLoad foo
+"     :SDelete foo
+"
+" Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
 
 " Variables {{{1
 
