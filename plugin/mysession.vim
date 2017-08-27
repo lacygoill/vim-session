@@ -81,13 +81,17 @@ augroup END
 " the error, because it will happen outside of a function.
 " "}}}
 
-com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SDelete  echoerr s:delete(<q-args>)
+com! -bar -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  echoerr s:delete(<bang>0, <q-args>)
 com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  echoerr s:rename(<q-args>)
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
-fu! s:delete(session) abort "{{{2
+fu! s:delete(bang, session) abort "{{{2
+    if !a:bang
+        return 'Add a bang'
+    endif
+
     let session_file = empty(a:session)
                     \?     g:my_session
                     \:     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
