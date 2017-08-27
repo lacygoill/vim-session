@@ -97,14 +97,16 @@ fu! s:delete(bang, session) abort "{{{2
                     \:     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
 
     if session_file ==# g:my_session
+        " We have to load the alternate session BEFORE deleting the session
+        " file, because `:SLoad#` will take a last snapshot of the current
+        " session, which would restore the deleted file.
         SLoad#
+        unlet! g:MY_PENULTIMATE_SESSION
     endif
 
     if delete(session_file)
         return 'Failed to delete '.session_file
     endif
-
-    unlet! g:MY_PENULTIMATE_SESSION
     return ''
 endfu
 
