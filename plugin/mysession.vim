@@ -81,11 +81,29 @@ augroup END
 " the error, because it will happen outside of a function.
 " "}}}
 
-com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
+com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SDelete  echoerr s:delete(<q-args>)
 com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  echoerr s:rename(<q-args>)
+com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
+fu! s:delete(session) abort "{{{2
+    let session_file = empty(a:session)
+                    \?     g:my_session
+                    \:     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
+
+    if session_file ==# g:my_session
+        SLoad#
+    endif
+
+    if delete(session_file)
+        return 'Failed to delete '.session_file
+    endif
+
+    unlet! g:MY_PENULTIMATE_SESSION
+    return ''
+endfu
+
 fu! s:file_is_valuable() abort "{{{2
     " By default, `:mksession file` fails, because `:mksession` refuses to overwrite
     " an existing file.
@@ -204,14 +222,16 @@ fu! s:load(file) abort " {{{2
     let file = empty(a:file)
             \?     s:session_dir.'/default.vim'
             \: a:file ==# '#'
-            \?     g:MY_PENULTIMATE_SESSION
+            \?     get(g:, 'MY_PENULTIMATE_SESSION', '')
             \: a:file =~# '/'
             \?     fnamemodify(a:file, ':p')
             \:     s:session_dir.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
-    if !filereadable(file)
+    if empty(file)
+        return 'echoerr "there''s no alternate session"'
+    elseif !filereadable(file)
         return 'echoerr '.string(fnamemodify(file, ':t')).'." doesn''t exist, or it''s not readable"'
     elseif s:session_loaded_in_other_instance(file)
         return 'echoerr '.string(fnamemodify(file, ':t')).'." is already loaded in another Vim instance"'
