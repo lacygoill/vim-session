@@ -1,3 +1,8 @@
+if exists('g:loaded_mysession')
+    finish
+endif
+let g:loaded_mysession = 1
+
 " Autocmds {{{1
 
 augroup my_session
@@ -81,12 +86,28 @@ augroup END
 " the error, because it will happen outside of a function.
 " "}}}
 
+" We use `:echoerr` for `:SDelete`, `:SRename`, `:SClose`, because we want the
+" command to disappear if no error occurs during its execution.
+" For `:SLoad` and `:STrack`, we use `:exe` because there will always be
+" a message to display; even when everything works fine.
+com! -bar                -complete=customlist,s:suggest_sessions SClose   echoerr s:close()
 com! -bar -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  echoerr s:delete(<bang>0, <q-args>)
-com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  echoerr s:rename(<q-args>)
+
+com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
+fu! s:close() abort "{{{2
+    if !exists('g:my_session')
+        return ''
+    endif
+
+    sil STrack
+    sil! tabonly | sil! only | enew
+    return ''
+endfu
+
 fu! s:delete(bang, session) abort "{{{2
     if !a:bang
         return 'Add a bang'
@@ -101,9 +122,12 @@ fu! s:delete(bang, session) abort "{{{2
         " file, because `:SLoad#` will take a last snapshot of the current
         " session, which would restore the deleted file.
         SLoad#
+        " The current session has just become the alternate one.
+        " Since we're going to delete its file, make the plugin forget about it.
         unlet! g:MY_PENULTIMATE_SESSION
     endif
 
+    " Delete the session file, and if sth goes wrong report what happened.
     if delete(session_file)
         return 'Failed to delete '.session_file
     endif
@@ -329,12 +353,13 @@ fu! s:prepare_restoration(file) abort "{{{2
     "                                                           └ get rid of arglist
     "                                                             we don't want to restore it
 
-    " If we switch from a session with several tabpages, to another with just one,
-    " all the tabpages from the 1st session (except the first tabpage)
-    " stay in the new session. We don't want that.
+    " If the current session contains several tabpages, they won't be closed.
+    " For some reason, `:mksession` writes the command `:only` in the session
+    " file, but not `:tabonly`. So, we make sure every tabpage/window is
+    " closed, before restoring a session.
     sil! tabonly | sil! only
     "  │
-    "  └─ if there's already only 1 tab, it will display a message
+    "  └─ if there's only 1 tab, `:tabonly` will display a message
 endfu
 
 fu! s:rename(new_name) abort "{{{2
@@ -724,24 +749,129 @@ fu! s:where_do_we_save() abort "{{{2
     endif
 endfu
 
-" Usage {{{1
+" Variables {{{1
 
-"     :STrack file
+let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
+
+" Documentation {{{1
+" Design {{{2
+
+" `:STrack` can receive 5 kind of names as arguments:
 "
-" Invoke `:mksession` on `file`, iff `file`:
+"     • nothing
+"     • a  new     file (doesn't exist yet)
+"     • an empty   file (exists, but doesn't contain anything)
+"     • a  regular file
+"     • a  session file
 "
-"     • doesn't exist
-"     • is empty
-"     • looks like a session file (according to its name or its contents)
+" Also, `:STrack` can be suffixed with a bang.
+" So, we can execute 10 kinds of command in total.
+" They almost all track the session.
+" This is a DESIGN DECISION (the command could behave differently).
+" We design the command so that, by default, it tracks the current session,
+" no matter the argument / presence of a bang.
+" After all, this is its main purpose.
+"
+" However, we want to add 2 functionalities:   pause and deletion.
+" And we don't want to overwrite an important file by accident.
+" These are 3 special cases:
+"
+"         ┌──────────────────────┬─────────────────────────────────────────┐
+"         │ :STrack              │ if the current session is being tracked │
+"         │                      │ the tracking is paused                  │
+"         ├──────────────────────┼─────────────────────────────────────────┤
+"         │ :STrack!             │ if the current session is being tracked │
+"         │                      │ the tracking is paused                  │
+"         │                      │ AND the session file is deleted         │
+"         ├──────────────────────┼─────────────────────────────────────────┤
+"         │ :STrack regular_file │ fails (E189)                            │
+"         └──────────────────────┴─────────────────────────────────────────┘
+
+
+" Zen:
+"
+"     How to write an algorithm composed of 1 main case, and several special cases?
+"
+"     • chronologically, implement main case  FIRST (special cases later)
+"
+"     • inside the code, write special cases  BEFORE main case
+"
+"     • describe EXACTLY the state of the environment when a special case occurs
+"
+"             - aka necessary and sufficient conditions -
+"
+"       … and let all the other states be handled by the main case
+"
+"
+" Zen: think about the main use case first, THEN the special cases.
+" Why?
+"
+" Here's a metaphor:
+" You have to paint a figure inside a sheet. The figure covers most of the sheet.
+" It's easier to paint the whole sheet, then remove what's in excess, rather than
+" carefully paint the inside without never crossing the boundaries.
+"
+" Other metaphor:
+" To express the number 7, it's easier to read and write:
+"
+"         ┌─ default action
+"         │
+"         10 - 1 - 1 - 1
+"              │   │   │
+"              │   │   └─ …
+"              │   └─ special case
+"              └─ special case
+"
+" … than:
+"
+"         1 + 1 + 1 + 1 + 1 + 1 + 1
+"         │   │   │   │   │   │   │
+"         │   │   │   │   │   │   └─ …
+"         │   │   │   │   │   └─ …
+"         │   │   │   │   └─ …
+"         │   │   │   └─ …
+"         │   │   └─ …
+"         │   └─ main case
+"         └─ main case
+"
+" In practice, it means that most of the time, you shouldn't consider the special
+" cases before implementing the main use case. For 2 reasons:
+"
+"         • the final flowchart of your algorithm will be less complex
+"
+"         • once you have implemented the code for the main use case, you'll have
+"           a tool to discover by experimentation the special cases you didn't
+"           think about initially
+
+" Usage {{{2
+
+"     • :STrack file
+"     • :STrack /path/to/file
+"     • :STrack relative/path/to/file
+"
+" Invoke `:mksession` on:
+"
+"     • ~/.vim/session/file
+"     • /path/to/file
+"     • cwd/path/to/file
+"
+" … iff `file`:
+"
+"       doesn't exist
+"     + is empty
+"     + looks like a session file (according to its name or its contents)
 "
 " Update the file whenever `BufWinEnter`, `TabClosed` or `VimLeavePre` is fired.
 
 
-"     :STrack dir
+" `:STrack!` invokes `:mksession!`, which tries to overwrite the file no matter what.
+
+
+"     :STrack dir/
 "
 " Invoke `:STrack` on `dir/default.vim`.
-"
-"
+
+
 "     :STrack
 "
 " If the tracking of a session is running:  pause it
@@ -753,7 +883,7 @@ endfu
 "     :STrack!
 "
 " If no session is being tracked, begin the tracking.
-" If the tracking of a session is running:  cancel it and remove the session
+" If the tracking of a session is running:  pause it and remove the session
 " file.
 "
 "
@@ -765,7 +895,7 @@ endfu
 "     :SRename foo
 "
 " Delete current session.
-" Rename current session into `foo`.
+" Rename current session into `~/.vim/session/foo`.
 
 
 "     :SLoad#
@@ -778,6 +908,3 @@ endfu
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
 
-" Variables {{{1
-
-let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
