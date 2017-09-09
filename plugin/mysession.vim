@@ -105,6 +105,7 @@ fu! s:close() abort "{{{2
 
     sil STrack
     sil! tabonly | sil! only | enew
+    call s:rename_tmux_window('vim')
     return ''
 endfu
 
@@ -134,26 +135,7 @@ fu! s:delete(bang, session) abort "{{{2
     return ''
 endfu
 
-fu! s:file_is_valuable() abort "{{{2
-    " By default, `:mksession file` fails, because `:mksession` refuses to overwrite
-    " an existing file.
-    " `:STrack` should behave the same way.
-    " With one exception:  if the file isn't valuable, overwrite it anyway.
-    "
-    " What does a valuable file look like? :
-    "
-    "         - readable
-    "         - not empty
-    "         - doesn't look like a session file, because
-    "           neither its location nor its contents match
-
-    return filereadable(s:file)
-      \&&  getfsize(s:file) > 0
-      \&&  fnamemodify(s:file, ':h')  !=# s:session_dir
-      \&&  readfile(s:file, '', 1)[0] !=# 'let SessionLoad = 1'
-endfu
-
-fu! s:handle_session(bang, file) abort " {{{2
+fu! s:handle_session(bang, file) abort "{{{2
     " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
     " script-local scope, to NOT have to pass them as arguments to various
     " functions:
@@ -163,10 +145,18 @@ fu! s:handle_session(bang, file) abort " {{{2
     "         s:should_pause_session()
     "         s:session_pause()
     "         s:where_do_we_save()
-    "         s:file_is_valuable()
 
     let s:bang = a:bang
     let s:file = a:file
+    " This variable is used by:
+    "
+    "         • s:session_pause()
+    "         • s:session_delete()
+    "         • s:where_do_we_save()
+    "
+    " It's useful to be able to delete a session which isn't currently
+    " tracked, and to track the session using the session file of the last
+    " session used.
     let s:last_used_session = get(g:, 'my_session', v:this_session)
 
     try
@@ -187,14 +177,15 @@ fu! s:handle_session(bang, file) abort " {{{2
         let s:file = s:where_do_we_save()
         if empty(s:file) | return '' | endif
 
-        "  ┌─ we only care whether a file is valuable if NO bang is given
+        "  ┌─ we only care whether a file is readable if NO bang is given
         "  │
-        "  │  Otherwise, we overwrite the file no matter what.
-        "  │  `:mksession! file` overwrites `file`. `:STrack!` should do the same.
+        "  │  Otherwise, we try to overwrite the file no matter what.
+        "  │  `:mksession! file` tries to overwrite `file`.
+        "  │  `:STrack!` should do the same.
         "  │
-        if !s:bang && s:file_is_valuable() | return 'mksession '.fnameescape(s:file) | endif
-        "                                           └──────────────────────────────┤
-        "                                                                          │
+        if !s:bang && filereadable(s:file) | return 'mksession '.fnameescape(s:file) | endif
+        "                                            └──────────────────────────────┤
+        "                                                                           │
         " We don't want to raise an error from the current function (ugly stack trace).
         " The user only knows about `:mksession`, so the error must look like
         " it's coming from the latter.
@@ -211,7 +202,7 @@ fu! s:handle_session(bang, file) abort " {{{2
         " `s:track()` is frequently called by the autocmd listening to
         " BufWinEnter. We don't want the message to be echo'ed all the time.
         " The message, and the renaming of the tmux pane, should only occur
-        " when we track a new session.
+        " when we begin the tracking of a new session.
         let error = s:track()
         if empty(error)
             echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
@@ -227,30 +218,9 @@ fu! s:handle_session(bang, file) abort " {{{2
     endtry
 endfu
 
-fu! s:load(file) abort " {{{2
-    "   ┌─ 1st restoration:  1    !(-1 + 1)
-    "   │  2nd "          :  0    !(1 + 1)
-    "   │  3rd "          :  0    !(0 + 1)
-    "   │  …
-    let s:first_restoration = !(get(s:, 'first_restoration', -1) + 1)
-    " How did we find the formula?
-    " Simple solution, use a counter:
-    "
-    "         let s:counter += get(s:, 'counter', 0) + 1
-    "
-    " Pb: all the values of the counter will be true.
-    " Solution: start counting from -1, instead of 0.
-    "
-    "         let s:counter += get(s:, 'counter', -1) + 1
-    "
-    " Pb: the 1st value will be false, the next ones will be true.
-    " We need the opposite.
-    " Solution: invert the value.
-    "
-    "         let s:counter += !(get(s:, 'counter', -1) + 1)
-
+fu! s:load(file) abort "{{{2
     let file = empty(a:file)
-            \?     s:session_dir.'/default.vim'
+            \?     get(g:, 'MY_LAST_SESSION', '')
             \: a:file ==# '#'
             \?     get(g:, 'MY_PENULTIMATE_SESSION', '')
             \: a:file =~# '/'
@@ -260,7 +230,7 @@ fu! s:load(file) abort " {{{2
     let file = resolve(file)
 
     if empty(file)
-        return 'echoerr "there''s no alternate session"'
+        return 'echoerr "there''s no session to load"'
     elseif !filereadable(file)
         return 'echoerr '.string(fnamemodify(file, ':t')).'." doesn''t exist, or it''s not readable"'
     elseif s:session_loaded_in_other_instance(file)
@@ -283,12 +253,6 @@ fu! s:load(file) abort " {{{2
     "         - or the last tracked session, "
     if exists('g:my_session')
         let g:MY_PENULTIMATE_SESSION = g:my_session
-    " If we've paused the tracking of a session, `g:my_session` won't exist.
-    " But, `g:MY_LAST_SESSION` still exists. Use it as the alternative
-    " session, but not during Vim's startup (otherwise we would lose the
-    " alternative session whenever we start Vim).
-    elseif exists('g:MY_LAST_SESSION') && !s:first_restoration
-        let g:MY_PENULTIMATE_SESSION = g:MY_LAST_SESSION
     endif
 
     "  ┌─ Sometimes, when the session contains one of our folded notes,
@@ -499,7 +463,7 @@ fu! s:safe_to_load_session() abort "{{{2
     "     Otherwise, loading it in a 2nd instance would raise the error E325.
 endfu
 
-fu! s:session_loaded_in_other_instance(session_file) abort " {{{2
+fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     let buffers = filter(readfile(a:session_file), 'v:val =~# "^badd"')
 
     if empty(buffers)
@@ -579,7 +543,7 @@ endfu
 
 fu! s:session_pause() abort "{{{2
     echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
-    let g:MY_PENULTIMATE_SESSION = g:my_session
+    let g:MY_LAST_SESSION = g:my_session
     unlet g:my_session
     " don't empty `v:this_session`: we need it if we resume later
     return ''
@@ -801,8 +765,8 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "             - aka necessary and sufficient conditions -
 "
 "       … and let all the other states be handled by the main case
-"
-"
+
+
 " Zen: think about the main use case first, THEN the special cases.
 " Why?
 "
@@ -907,4 +871,3 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "     :SDelete foo
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
-
