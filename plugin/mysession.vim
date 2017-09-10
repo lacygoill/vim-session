@@ -819,11 +819,7 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "     • /path/to/file
 "     • cwd/path/to/file
 "
-" … iff `file`:
-"
-"       doesn't exist
-"     + is empty
-"     + looks like a session file (according to its name or its contents)
+" … iff `file` doesn't exist.
 "
 " Update the file whenever `BufWinEnter`, `TabClosed` or `VimLeavePre` is fired.
 
