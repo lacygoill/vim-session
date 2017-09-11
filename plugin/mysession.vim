@@ -184,8 +184,8 @@ fu! s:handle_session(bang, file) abort "{{{2
         "  │  `:STrack!` should do the same.
         "  │
         if !s:bang && filereadable(s:file) | return 'mksession '.fnameescape(s:file) | endif
-        "                                            └──────────────────────────────┤
-        "                                                                           │
+        "                                           └──────────────────────────────┤
+        "                                                                          │
         " We don't want to raise an error from the current function (ugly stack trace).
         " The user only knows about `:mksession`, so the error must look like
         " it's coming from the latter.
@@ -867,3 +867,8 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "     :SDelete foo
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
+
+
+"     :SClose
+"
+" Close the session:  stop the tracking of the session, and close all windows
