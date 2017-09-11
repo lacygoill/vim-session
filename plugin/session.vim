@@ -1,7 +1,7 @@
-if exists('g:loaded_mysession')
+if exists('g:loaded_session')
     finish
 endif
-let g:loaded_mysession = 1
+let g:loaded_session = 1
 
 " Autocmds {{{1
 
@@ -569,7 +569,7 @@ fu! s:snr() "{{{2
     return matchstr(expand('<sfile>'), '<SNR>\d\+_')
 endfu
 
-fu! mysession#status() abort "{{{2
+fu! session#status() abort "{{{2
 
     " From the perspective of sessions, the environment can be in 3 states:
     "
@@ -856,6 +856,11 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "
 " Delete current session.
 " Rename current session into `~/.vim/session/foo`.
+
+
+"     :SLoad
+"
+" Load last used session. Useful after `:SClose`.
 
 
 "     :SLoad#
