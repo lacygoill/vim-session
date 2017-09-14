@@ -230,7 +230,7 @@ fu! s:load(file) abort "{{{2
     let file = resolve(file)
 
     if empty(file)
-        return 'echoerr "there''s no session to load"'
+        return 'echoerr "No session to load"'
     elseif !filereadable(file)
         return 'echoerr '.string(fnamemodify(file, ':t')).'." doesn''t exist, or it''s not readable"'
     elseif s:session_loaded_in_other_instance(file)
@@ -243,8 +243,7 @@ fu! s:load(file) abort "{{{2
 
     " Even though we don't include 'options' inside 'ssop', a session file
     " manipulates the value of 'shm'. We save and restore this option
-    " manually, to be sure it won't be changed. It happened once:
-    " 'shm' was constantly emptied by all session files.
+    " manually, to be sure it won't be changed.
     let shm_save = &shm
 
     " Before restoring a session, we need to set the previous one (for `:SLoad#`).
@@ -408,7 +407,7 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
             \|     call s:restore_help_settings()
             \| endif
 
-    " I had a `E86` error once (buffer didn't exist anymore).
+    " I had an `E86` error once (buffer didn't exist anymore).
     if bufexists(cur_bufnr)
         exe 'b '.cur_bufnr
     endif
@@ -425,7 +424,7 @@ fu! s:restore_window_local_settings() abort "{{{2
     " Why not simply:
     "       doautoall BufWinEnter
     " ?
-    " Because `:doautoall` executes the autocmds in the context of the buffers.
+    " Because `:doautoall` executes the autocmds in the context of the BUFFERS.
     " But their purpose is to set WINDOW-local options.
     " They need to be executed in the context of the windows, not the buffers.
     "
