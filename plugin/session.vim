@@ -673,6 +673,24 @@ fu! s:track() abort "{{{2
             "     $ vim          restart Vim
             let g:MY_LAST_SESSION = g:my_session
 
+        catch /E788/
+            " Since Vim 8.0.677, some autocmds listening to `BufWinEnter`
+            " may not work all the time. Sometimes they raise the error `E788`.
+            " For us, it happens when we open the qf window (`:copen`).
+            " Minimal vimrc to reproduce:
+            "
+            "         au BufWinEnter * mksession! /tmp/session.vim
+            "         copen
+            "
+            " Basically, `:mksession` (temporarily?) changes the current
+            " buffer when 'ft' is set to 'qf', which is now forbidden.
+            " For more info, search `E788` on Vim's bug tracker.
+            "
+            " Here, we simply ignore the error.
+            " More generally, when we want to do sth which is forbidden
+            " because of a lock, we could use `feedkeys()` and a plug mapping
+            " which would execute arbitrary code:
+            "     https://github.com/vim/vim/issues/1839#issuecomment-315489118
         catch
             " If sth goes wrong now, it will probably go wrong next time.
             " We don't want to go on trying to save a session, if `default.vim`
