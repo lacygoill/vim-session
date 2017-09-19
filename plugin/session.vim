@@ -311,10 +311,10 @@ fu! s:prepare_restoration(file) abort "{{{2
     " Update current session file, before loading another one.
     exe s:track()
 
-    call writefile(filter(readfile(a:file), 'v:val !~# "^\S*argadd "'), a:file)
-    "                                        └─────────────────────┤
-    "                                                              └ get rid of arglist
-    "                                                                we don't want to restore it
+    call writefile(filter(readfile(a:file), 'v:val !~# "^\\S*argadd "'), a:file)
+    "                                        └──────────────────────┤
+    "                                                               └ get rid of arglist
+    "                                                                 we don't want to restore it
 
     " If the current session contains several tabpages, they won't be closed.
     " For some reason, `:mksession` writes the command `:only` in the session
