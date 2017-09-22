@@ -97,6 +97,31 @@ com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  echoer
 com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 
+" Options {{{1
+" sessionoptions {{{2
+
+"         ┌─ don't save empty windows when `:mksession` is executed
+"         │
+"         │           ┌─ only save buffers which are displayed in windows
+"         │           │
+set ssop-=blank ssop-=buffers ssop-=options
+"                                   │
+"                                   └─ don't save options and mappings
+"                                                   why?
+"       because if we make some experiments and change some options/mappings
+"       during a session, we don't want those to be restored;
+"       only those written in files should be (vimrc, plugins, …)
+
+" viminfo "{{{2
+
+" save and restore global variables that start with an uppercase letter,
+" and don't contain a lowercase letter.
+" Thus "KEEPTHIS and "K_L_M" are stored, but "KeepThis" and "_K_L_M" are not.
+" Nested List and Dict items may not be read back correctly, you end up with an
+" empty item.
+
+set viminfo^=!
+
 " Functions "{{{1
 fu! s:close() abort "{{{2
     if !exists('g:my_session')
