@@ -140,14 +140,14 @@ fu! s:delete(bang, session) abort "{{{2
     endif
 
     let session_file = empty(a:session)
-                    \?     g:my_session
+                    \?     get(g:, 'my_session', 'MY_LAST_SESSION')
                     \:     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
 
-    if session_file ==# g:my_session
+    if exists('g:my_session') && session_file ==# g:my_session
         " We have to load the alternate session BEFORE deleting the session
         " file, because `:SLoad#` will take a last snapshot of the current
         " session, which would restore the deleted file.
-        SLoad#
+        sil! SLoad#
         " The current session has just become the alternate one.
         " Since we're going to delete its file, make the plugin forget about it.
         unlet! g:MY_PENULTIMATE_SESSION
