@@ -104,9 +104,14 @@ com! -bar -bang -nargs=? -complete=file                          STrack   exe s:
 "         │
 "         │           ┌─ only save buffers which are displayed in windows
 "         │           │
-set ssop-=blank ssop-=buffers ssop-=options
-"                                   │
-"                                   └─ don't save options and mappings
+"         │           │             ┌─ don't save current directory
+"         │           │             │  when we start Vim, we want the current directory
+"         │           │             │  to be the same as the one in the shell
+"         │           │             │  otherwise it can lead to confusing situations when we use `**`
+"         │           │             │
+set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
+"                                                │
+"                                                └─ don't save options and mappings
 "                                                   why?
 "       because if we make some experiments and change some options/mappings
 "       during a session, we don't want those to be restored;
