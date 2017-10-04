@@ -9,7 +9,7 @@ augroup my_session
     au!
     au StdInReadPost * let s:read_stdin = 1
 
-    "             ┌─ necessary to source ftplugins (trigger autocmds listening to bufread event?)
+    "             ┌─ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
     "             │
     au VimEnter * nested if s:safe_to_load_session()
                       \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', 'default')
@@ -290,18 +290,18 @@ fu! s:load(file) abort "{{{2
     "  │  folded yet.
     "  │
     sil! exe 'so '.fnameescape(file)
-    " NOTE: possible issue with other autocmds {{{
+    " During the sourcing, other issues may occur. {{{
     "
     " Every custom function that we invoke in any autocmd (vimrc, other plugin)
     " may interfere with the restoration process.
     " For an example, have a look at `s:dnb_clean()` in vimrc.
     "
     " To prevent any issue, we could restore the session while all autocmds are
-    " disabled, THEN emit the `BufRead` event in all buffers, to execute the
-    " autocmds associated to filetype detection:
+    " disabled, THEN emit `BufReadPost` in all buffers, to execute the autocmds
+    " associated to filetype detection:
     "
     "         noautocmd so ~/.vim/session/default.vim
-    "         doautoall filetypedetect BufRead
+    "         doautoall filetypedetect BufReadPost
     "                   │
     "                   └─ $VIMRUNTIME/filetype.vim
     "
@@ -312,7 +312,7 @@ fu! s:load(file) abort "{{{2
     "           → in the session file, commands handling folds (e.g. `zo`) would
     "             raise `E490: No fold found`
     "
-    "       `doautoall filetypedetect BufRead` would only affect the file in
+    "       `doautoall filetypedetect BufReadPost` would only affect the file in
     "       which the autocmd calling the current function is installed
     "           → no syntax highlighting everywhere else
     "           → we would have to delay the command with a timer or maybe
@@ -397,7 +397,7 @@ fu! s:restore_help_settings() abort "{{{2
 
     augroup restore_help_settings
         au! * <buffer>
-        au BufRead <buffer> setl ft=help nobuflisted noma ro
+        au BufReadPost <buffer> setl ft=help nobuflisted noma ro
     augroup END
 
     " TODO:
