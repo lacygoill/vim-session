@@ -157,13 +157,17 @@ fu! s:delete(bang, session) abort "{{{2
     endif
 
     if exists('g:my_session') && session_file ==# g:my_session
-        " We have to load the alternate session BEFORE deleting the session
-        " file, because `:SLoad#` will take a last snapshot of the current
-        " session, which would restore the deleted file.
-        sil! SLoad#
-        " The current session has just become the alternate one.
-        " Since we're going to delete its file, make the plugin forget about it.
-        unlet! g:MY_PENULTIMATE_SESSION
+        if exists('g:MY_PENULTIMATE_SESSION')
+            " We have to load the alternate session BEFORE deleting the session
+            " file, because `:SLoad#` will take a last snapshot of the current
+            " session, which would restore the deleted file.
+            sil! SLoad#
+            " The current session has just become the alternate one.
+            " Since we're going to delete its file, make the plugin forget about it.
+            unlet! g:MY_PENULTIMATE_SESSION
+        else
+            SClose
+        endif
     endif
 
     " Delete the session file, and if sth goes wrong report what happened.
