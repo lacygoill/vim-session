@@ -144,9 +144,17 @@ fu! s:delete(bang, session) abort "{{{2
         return 'Add a bang'
     endif
 
-    let session_file = empty(a:session)
-                    \?     get(g:, 'my_session', 'MY_LAST_SESSION')
-                    \:     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
+    if a:session ==# '#'
+        if exists('g:MY_PENULTIMATE_SESSION')
+            let session_file = g:MY_PENULTIMATE_SESSION
+        else
+            return 'No alternate session to delete'
+        endif
+    else
+        let session_file = empty(a:session)
+                        \?     get(g:, 'my_session', 'MY_LAST_SESSION')
+                        \:     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
+    endif
 
     if exists('g:my_session') && session_file ==# g:my_session
         " We have to load the alternate session BEFORE deleting the session
