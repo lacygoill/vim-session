@@ -90,9 +90,9 @@ augroup END
 " command to disappear if no error occurs during its execution.
 " For `:SLoad` and `:STrack`, we use `:exe` because there will always be
 " a message to display; even when everything works fine.
-com! -bar                -complete=customlist,s:suggest_sessions SClose   echoerr s:close()
-com! -bar -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  echoerr s:delete(<bang>0, <q-args>)
-com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  echoerr s:rename(<q-args>)
+com! -bar                -complete=customlist,s:suggest_sessions SClose   exe s:close()
+com! -bar -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
+com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  exe s:rename(<q-args>)
 
 com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
@@ -141,14 +141,14 @@ endfu
 
 fu! s:delete(bang, session) abort "{{{2
     if !a:bang
-        return 'Add a bang'
+        return 'echoerr "Add a bang"'
     endif
 
     if a:session ==# '#'
         if exists('g:MY_PENULTIMATE_SESSION')
             let session_file = g:MY_PENULTIMATE_SESSION
         else
-            return 'No alternate session to delete'
+            return 'echoerr "No alternate session to delete"'
         endif
     else
         let session_file = empty(a:session)
@@ -168,7 +168,7 @@ fu! s:delete(bang, session) abort "{{{2
 
     " Delete the session file, and if sth goes wrong report what happened.
     if delete(session_file)
-        return 'Failed to delete '.session_file
+        return 'echoerr '.string('Failed to delete '.session_file)
     endif
     return ''
 endfu
@@ -270,11 +270,11 @@ fu! s:load(file) abort "{{{2
     if empty(file)
         return 'echoerr "No session to load"'
     elseif !filereadable(file)
-        return 'echoerr '.string(fnamemodify(file, ':t')).'." doesn''t exist, or it''s not readable"'
+        return 'echoerr '.string(fnamemodify(file, ':t')." doesn't exist, or it's not readable")
     elseif s:session_loaded_in_other_instance(file)
-        return 'echoerr '.string(fnamemodify(file, ':t')).'." is already loaded in another Vim instance"'
+        return 'echoerr '.string(fnamemodify(file, ':t')." is already loaded in another Vim instance")
     elseif exists('g:my_session') && file ==# g:my_session
-        return 'echoerr '.string(fnamemodify(file, ':t')).'." is already the current session"'
+        return 'echoerr '.string(fnamemodify(file, ':t')." is already the current session")
     endif
 
     call s:prepare_restoration(file)
@@ -368,7 +368,7 @@ fu! s:rename(new_name) abort "{{{2
     let dst = expand(s:session_dir.'/'.a:new_name.'.vim')
 
     if rename(src, dst)
-        return 'Failed to rename '.string(src).' to '.string(dst)
+        return 'echoerr '.string('Failed to rename '.src.' to '.dst)
     else
         let g:my_session = dst
         call s:rename_tmux_window(dst)
