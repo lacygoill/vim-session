@@ -923,8 +923,9 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 
 
 "     :SLoad#
+"     :SDelete#
 "
-" Load the previous session.
+" Load / Delete the previous session.
 
 
 "     :SLoad foo
