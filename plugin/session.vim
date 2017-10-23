@@ -172,9 +172,9 @@ fu! s:delete(bang, session) abort "{{{2
 
     " Delete the session file, and if sth goes wrong report what happened.
     if delete(session_file)
-        return 'echoerr '.string('Failed to delete '.session_file)
+        return printf('echoerr "Failed to delete %s"', session_file)
     endif
-    return ''
+    return printf('echo "%s has been deleted"', session_file)
 endfu
 
 fu! s:handle_session(bang, file) abort "{{{2
@@ -910,7 +910,7 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 " to that file.
 
 
-"     :SDelete
+"     :SDelete!
 "     :SRename foo
 "
 " Delete current session.
@@ -923,13 +923,13 @@ let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 
 
 "     :SLoad#
-"     :SDelete#
+"     :SDelete!#
 "
 " Load / Delete the previous session.
 
 
 "     :SLoad foo
-"     :SDelete foo
+"     :SDelete! foo
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
 
