@@ -274,11 +274,11 @@ fu! s:load(file) abort "{{{2
     if empty(file)
         return 'echoerr "No session to load"'
     elseif !filereadable(file)
-        return 'echoerr '.string(fnamemodify(file, ':t')." doesn't exist, or it's not readable")
+        return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(file, ':t'))
     elseif s:session_loaded_in_other_instance(file)
-        return 'echoerr '.string(fnamemodify(file, ':t')." is already loaded in another Vim instance")
+        return printf('echoerr "%s is already loaded in another Vim instance"', fnamemodify(file, ':t'))
     elseif exists('g:my_session') && file ==# g:my_session
-        return 'echoerr '.string(fnamemodify(file, ':t')." is already the current session")
+        return printf('echoerr "%s is already the current session"', fnamemodify(file, ':t'))
     endif
 
     call s:prepare_restoration(file)
