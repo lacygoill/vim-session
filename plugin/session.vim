@@ -178,7 +178,7 @@ fu! s:delete(bang, session) abort "{{{2
         " It would fail when the name of the session file contains a double quote.
         return 'echoerr '.string('Failed to delete '.session_file)
     endif
-    return 'echo '.string(session_file.'has been deleted')
+    return 'echo '.string(session_file.' has been deleted')
 endfu
 
 fu! s:handle_session(bang, file) abort "{{{2
