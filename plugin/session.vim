@@ -172,9 +172,13 @@ fu! s:delete(bang, session) abort "{{{2
 
     " Delete the session file, and if sth goes wrong report what happened.
     if delete(session_file)
-        return printf('echoerr "Failed to delete %s"', session_file)
+        " Do NOT use `printf()`:
+        "         return printf('echoerr "Failed to delete %s"', session_file)
+        "
+        " It would fail when the name of the session file contains a double quote.
+        return 'echoerr '.string('Failed to delete '.session_file)
     endif
-    return printf('echo "%s has been deleted"', session_file)
+    return 'echo '.string(session_file.'has been deleted')
 endfu
 
 fu! s:handle_session(bang, file) abort "{{{2
@@ -274,11 +278,13 @@ fu! s:load(file) abort "{{{2
     if empty(file)
         return 'echoerr "No session to load"'
     elseif !filereadable(file)
-        return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(file, ':t'))
+        " Do NOT use `printf()` like this
+        "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(file, ':t'))
+        return 'echoerr '.string(printf("%s doesn't exist, or it's not readable", fnamemodify(file, ':t')))
     elseif s:session_loaded_in_other_instance(file)
-        return printf('echoerr "%s is already loaded in another Vim instance"', fnamemodify(file, ':t'))
+        return 'echoerr '.string(printf('%s is already loaded in another Vim instance', fnamemodify(file, ':t')))
     elseif exists('g:my_session') && file ==# g:my_session
-        return printf('echoerr "%s is already the current session"', fnamemodify(file, ':t'))
+        return 'echoerr '.string(printf('%s is already the current session', fnamemodify(file, ':t')))
     endif
 
     call s:prepare_restoration(file)
