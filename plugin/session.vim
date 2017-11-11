@@ -116,6 +116,10 @@ set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
 "       because if we make some experiments and change some options/mappings
 "       during a session, we don't want those to be restored;
 "       only those written in files should be (vimrc, plugins, …)
+"
+"       EXCEPTION:
+"       Vim will  still save folding options,  because we let the  value 'folds'
+"       inside 'ssop'.
 
 " viminfo "{{{2
 
