@@ -569,7 +569,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
 
     let a_file_is_currently_loaded = !empty(swapfiles)
     let it_is_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
-    return [ a_file_is_currently_loaded && it_is_not_in_this_session, swapfiles[0] ]
+    return [ a_file_is_currently_loaded && it_is_not_in_this_session, get(swapfiles, 0, '') ]
 endfu
 
 fu! s:session_delete() abort "{{{2
