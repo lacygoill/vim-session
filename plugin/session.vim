@@ -3,6 +3,15 @@ if exists('g:loaded_session')
 endif
 let g:loaded_session = 1
 
+" Mapping {{{1
+
+nno <silent> <space>R :<c-u>sil call <sid>vim_quit_reload()<cr>
+"                            │
+"                            └─ bypass prompt:
+"                                    “Press ENTER or type command to continue“
+"
+"                               … after executing the shell command
+
 " Autocmds {{{1
 
 augroup my_session
@@ -757,6 +766,25 @@ fu! s:track() abort "{{{2
         endtry
     endif
     return ''
+endfu
+
+fu! s:vim_quit_reload() abort "{{{2
+    " Source:
+    " https://www.reddit.com/r/vim/comments/5lj75f/how_to_reload_vim_completely_using_zsh_exit_to/
+    "
+    " For the shell to restart Vim after quitting, we need to add this in `~/.zshrc`:
+    "
+    "         catch_signal_usr1() {
+    "           trap catch_signal_usr1 USR1
+    "           clear
+    "           vim
+    "         }
+    "         trap catch_signal_usr1 USR1
+
+    " Send the signal `USR1` to the shell  parent of the current Vim instance to
+    " relaunch Vim.
+    !kill -USR1 $(ps -p $(ps -p $$ -o ppid=) -o ppid=)
+    qa!
 endfu
 
 fu! s:where_do_we_save() abort "{{{2
