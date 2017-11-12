@@ -3,15 +3,6 @@ if exists('g:loaded_session')
 endif
 let g:loaded_session = 1
 
-" Mapping {{{1
-
-nno <silent> <space>R :<c-u>sil call <sid>vim_quit_reload()<cr>
-"                            │
-"                            └─ bypass prompt:
-"                                    “Press ENTER or type command to continue“
-"
-"                               … after executing the shell command
-
 " Autocmds {{{1
 
 augroup my_session
@@ -105,40 +96,6 @@ com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  exe s:
 
 com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
-
-" Options {{{1
-" sessionoptions {{{2
-
-"         ┌─ don't save empty windows when `:mksession` is executed
-"         │
-"         │           ┌─ only save buffers which are displayed in windows
-"         │           │
-"         │           │             ┌─ don't save current directory
-"         │           │             │  when we start Vim, we want the current directory
-"         │           │             │  to be the same as the one in the shell
-"         │           │             │  otherwise it can lead to confusing situations when we use `**`
-"         │           │             │
-set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
-"                                                │
-"                                                └─ don't save options and mappings
-"                                                   why?
-"       because if we make some experiments and change some options/mappings
-"       during a session, we don't want those to be restored;
-"       only those written in files should be (vimrc, plugins, …)
-"
-"       EXCEPTION:
-"       Vim will  still save folding options,  because we let the  value 'folds'
-"       inside 'ssop'.
-
-" viminfo "{{{2
-
-" save and restore global variables that start with an uppercase letter,
-" and don't contain a lowercase letter.
-" Thus "KEEPTHIS and "K_L_M" are stored, but "KeepThis" and "_K_L_M" are not.
-" Nested List and Dict items may not be read back correctly, you end up with an
-" empty item.
-
-set viminfo^=!
 
 " Functions "{{{1
 fu! s:close() abort "{{{2
@@ -810,6 +767,49 @@ fu! s:where_do_we_save() abort "{{{2
         \:         s:session_dir.'/'.s:file.'.vim'
     endif
 endfu
+
+" Mapping {{{1
+
+nno <silent> <space>R :<c-u>sil call <sid>vim_quit_reload()<cr>
+"                            │
+"                            └─ bypass prompt:
+"                                    “Press ENTER or type command to continue“
+"
+"                               … after executing the shell command
+
+" Options {{{1
+" sessionoptions {{{2
+
+"         ┌─ don't save empty windows when `:mksession` is executed
+"         │
+"         │           ┌─ only save buffers which are displayed in windows
+"         │           │
+"         │           │             ┌─ don't save current directory
+"         │           │             │  when we start Vim, we want the current directory
+"         │           │             │  to be the same as the one in the shell
+"         │           │             │  otherwise it can lead to confusing situations when we use `**`
+"         │           │             │
+set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
+"                                                │
+"                                                └─ don't save options and mappings
+"                                                   why?
+"       because if we make some experiments and change some options/mappings
+"       during a session, we don't want those to be restored;
+"       only those written in files should be (vimrc, plugins, …)
+"
+"       EXCEPTION:
+"       Vim will  still save folding options,  because we let the  value 'folds'
+"       inside 'ssop'.
+
+" viminfo "{{{2
+
+" save and restore global variables that start with an uppercase letter,
+" and don't contain a lowercase letter.
+" Thus "KEEPTHIS and "K_L_M" are stored, but "KeepThis" and "_K_L_M" are not.
+" Nested List and Dict items may not be read back correctly, you end up with an
+" empty item.
+
+set viminfo^=!
 
 " Variables {{{1
 
