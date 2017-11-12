@@ -285,8 +285,9 @@ fu! s:load(file) abort "{{{2
         " Do NOT use `printf()` like this
         "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(file, ':t'))
         return 'echoerr '.string(printf("%s doesn't exist, or it's not readable", fnamemodify(file, ':t')))
-    elseif s:session_loaded_in_other_instance(file)
-        return 'echoerr '.string(printf('%s is already loaded in another Vim instance', fnamemodify(file, ':t')))
+    elseif s:session_loaded_in_other_instance(file)[0]
+        let file = substitute(fnamemodify(s:session_loaded_in_other_instance(file)[1], ':t:r'), '%', '/', 'g')
+        return 'echoerr '.string(printf('%s is already loaded in another Vim instance', file))
     elseif exists('g:my_session') && file ==# g:my_session
         return 'echoerr '.string(printf('%s is already the current session', fnamemodify(file, ':t')))
     endif
@@ -498,7 +499,7 @@ fu! s:safe_to_load_session() abort "{{{2
     return !argc()
        \&& !get(s:, 'read_stdin', 0)
        \&& filereadable(get(g:, 'MY_LAST_SESSION', 'default'))
-       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', 'default'))
+       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', 'default'))[0]
 
     " It's safe to automatically load a session during Vim's startup iff:
     "
@@ -568,7 +569,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
 
     let a_file_is_currently_loaded = !empty(swapfiles)
     let it_is_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
-    return a_file_is_currently_loaded && it_is_not_in_this_session
+    return [ a_file_is_currently_loaded && it_is_not_in_this_session, swapfiles[0] ]
 endfu
 
 fu! s:session_delete() abort "{{{2
