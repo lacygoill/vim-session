@@ -90,12 +90,12 @@ augroup END
 " command to disappear if no error occurs during its execution.
 " For `:SLoad` and `:STrack`, we use `:exe` because there will always be
 " a message to display; even when everything works fine.
-com!                -complete=customlist,s:suggest_sessions SClose   exe s:close()
-com! -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
-com!       -nargs=1 -complete=customlist,s:suggest_sessions SRename  exe s:rename(<q-args>)
+com! -bar                -complete=customlist,s:suggest_sessions SClose   exe s:close()
+com! -bar -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
+com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  exe s:rename(<q-args>)
 
-com!       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
-com! -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
+com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
+com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
 fu! s:close() abort "{{{2
