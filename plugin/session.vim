@@ -568,7 +568,7 @@ fu! s:session_pause() abort "{{{2
 endfu
 
 fu! s:should_delete_session() abort "{{{2
-    "                            ┌ :STrack! ø
+    "                            ┌ :STrack! ∅
     "      ┌─────────────────────┤
     return s:bang && empty(s:file) && filereadable(s:last_used_session)
     "                                 │
@@ -577,7 +577,7 @@ endfu
 
 fu! s:should_pause_session() abort "{{{2
     "      ┌─ no bang
-    "      │          ┌─ :STrack ø
+    "      │          ┌─ :STrack ∅
     "      │          │                ┌─ the current session is being tracked
     "      │          │                │
     return !s:bang && empty(s:file) && exists('g:my_session')
@@ -745,7 +745,7 @@ fu! s:vim_quit_reload() abort "{{{2
 endfu
 
 fu! s:where_do_we_save() abort "{{{2
-    " :STrack ø
+    " :STrack ∅
     if empty(s:file)
         if empty(s:last_used_session)
             if !isdirectory(s:session_dir)
