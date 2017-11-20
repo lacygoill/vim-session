@@ -15,14 +15,14 @@ augroup my_session
                       \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', 'default')
                       \| endif
 
-    " NOTE: The next autocmd serves 2 purposes:
+    " Purpose of the next 2 autocmds: {{{
     "
     "     1. automatically save the current session, as soon as `g:my_session`
     "        pops into existence
     "
     "     2. update the session file frequently, and as long as `g:my_session` exists
     "        IOW, track the session
-
+"}}}
     "                            ┌─ if sth goes wrong, the function returns the string:
     "                            │       'echoerr '.string(v:exception)
     "                            │
@@ -33,9 +33,8 @@ augroup my_session
     "  └─ We don't want the session to be saved only when we quit Vim,
     "     because Vim could exit abnormally.
     "
-    "     NOTE:
     "     Contrary to `BufEnter`, `BufWinEnter` is NOT fired for `:split`
-    "     (without arguments), nor for `:split file`, file being already
+    "     (without arguments), nor for `:split file`, `file` being already
     "     displayed in a window.
     "
     "     But most of the time, Vim won't quit abnormally, and the last saved
@@ -53,7 +52,7 @@ augroup END
 
 " Commands {{{1
 
-" NOTE: Why `exe s:handle_session()` {{{
+" Why `exe s:handle_session()` {{{
 " and why `exe s:track()`?
 "
 " If an error occurs in a function, we'll get an error such as:
@@ -405,7 +404,6 @@ fu! s:restore_help_settings() abort "{{{2
     "
     " I've tried to hook into all the events fired by `:h`, but none worked.
 
-    " NOTE:
     " We could also do that:
     "
     "         exe 'h '.matchstr(expand('%'), '.*/doc/\zs.*\.txt')
@@ -488,7 +486,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
         return 0
     endif
 
-    " NOTE: Never assign to a variable, the output of a function which operates{{{
+    " Never assign to a variable, the output of a function which operates{{{
     " in-place on a list:  map()  filter()  reverse()  sort()  uniq()
     " Unless, the list is the output of another function (including `copy()`):
     "
@@ -609,7 +607,6 @@ fu! session#status() abort "{{{2
     "                     to load/save a session;
     "                     if no session has been saved/loaded, it's empty
     "
-    " NOTE:
     " We can use this sum to express the state because there's no ambiguity.
     " Only 1 state can produce 0.
     " Only 1 state can produce 1.
