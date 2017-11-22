@@ -15,7 +15,7 @@ augroup my_session
                       \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', 'default')
                       \| endif
 
-    " Purpose of the next 2 autocmds: {{{
+    " Purpose of the next 3 autocmds: {{{
     "
     "     1. automatically save the current session, as soon as `g:my_session`
     "        pops into existence
@@ -23,12 +23,12 @@ augroup my_session
     "     2. update the session file frequently, and as long as `g:my_session` exists
     "        IOW, track the session
 "}}}
-    "                            ┌─ if sth goes wrong, the function returns the string:
-    "                            │       'echoerr '.string(v:exception)
-    "                            │
-    "                            │  we need to execute this string
-    "                            │
-    au BufWinEnter,VimLeavePre * exe s:track()
+    "                ┌─ if sth goes wrong, the function returns the string:
+    "                │       'echoerr '.string(v:exception)
+    "                │
+    "                │  we need to execute this string
+    "                │
+    au BufWinEnter * exe s:track(0)
     "  │
     "  └─ We don't want the session to be saved only when we quit Vim,
     "     because Vim could exit abnormally.
@@ -41,13 +41,15 @@ augroup my_session
     "     state of our session will be performed when VimLeavePre is fired.
     "     So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * call timer_start(0, {-> execute('exe '.s:snr().'track()')})
+    au TabClosed * call timer_start(0, {-> execute('exe '.s:snr().'track(0)')})
     " We also save whenever we close a tabpage, because we don't want
     " a closed tabpage to be restored while we switch back and forth between
     " 2 sessions with `:SLoad`.
     " But, we can't save the session immediately, because for some reason, Vim
     " would only save the last tabpage (or the current one?). So, we delay the
     " saving.
+
+    au VimLeavePre * exe s:track(1)
 augroup END
 
 " Commands {{{1
@@ -218,7 +220,7 @@ fu! s:handle_session(bang, file) abort "{{{2
         " BufWinEnter. We don't want the message to be echo'ed all the time.
         " The message, and the renaming of the tmux pane, should only occur
         " when we begin the tracking of a new session.
-        let error = s:track()
+        let error = s:track(0)
         if empty(error)
             echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
             call s:rename_tmux_window(s:file)
@@ -327,12 +329,7 @@ endfu
 
 fu! s:prepare_restoration(file) abort "{{{2
     " Update current session file, before loading another one.
-    exe s:track()
-
-    call writefile(filter(readfile(a:file), 'v:val !~# "^\\S*argadd "'), a:file)
-    "                                        └──────────────────────┤
-    "                                                               └ get rid of arglist
-    "                                                                 we don't want to restore it
+    exe s:track(0)
 
     " If the current session contains several tabpages, they won't be closed.
     " For some reason, `:mksession` writes the command `:only` in the session
@@ -631,7 +628,7 @@ fu! s:suggest_sessions(lead, line, _pos) abort "{{{2
     return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
 endfu
 
-fu! s:track() abort "{{{2
+fu! s:track(on_vimleavepre) abort "{{{2
     " This function saves the current session, iff `g:my_session` exists.
     " In the session file, it adds the line:
     "         let g:my_session = v:this_session
@@ -661,6 +658,10 @@ fu! s:track() abort "{{{2
     " update the session  iff / as soon as  this variable exists
     if exists('g:my_session')
         try
+            if a:on_vimleavepre
+                " empty arglist, we don't want to restore it when we restart Vim
+                %argd
+            endif
             "             ┌─ overwrite any existing file
             "             │
             exe 'mksession! '.fnameescape(g:my_session)
