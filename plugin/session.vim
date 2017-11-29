@@ -623,7 +623,7 @@ fu! session#status() abort "{{{2
     return [ '', '[S]', '[∞]' ][state]
 endfu
 
-fu! s:suggest_sessions(arglead, line, _pos) abort "{{{2
+fu! s:suggest_sessions(arglead, _c, _p) abort "{{{2
     let files = glob(s:session_dir.'/*'.a:arglead.'*.vim', 0, 1)
     return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
 endfu
