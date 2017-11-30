@@ -477,7 +477,7 @@ fu! s:safe_to_load_session() abort "{{{2
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
-    let buffers = filter(readfile(a:session_file), 'v:val =~# "^badd"')
+    let buffers = filter(readfile(a:session_file), { k,v -> v =~# '^badd' })
 
     if empty(buffers)
         return 0
@@ -487,11 +487,11 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     " in-place on a list:  map()  filter()  reverse()  sort()  uniq()
     " Unless, the list is the output of another function (including `copy()`):
     "
-    "         let list = map([1,2,3], 'v:val + 1')             ✘
+    "         let list = map([1,2,3], { k,v -> v + 1 })             ✘
     "
-    "         call map([1,2,3], 'v:val + 1')                   ✔
-    "         let list = map(copy([1,2,3]), 'v:val + 1')       ✔
-    "         let list = map(tabpagebuflist(), 'v:val + 1')    ✔
+    "         call map([1,2,3], { k,v -> v + 1 })                   ✔
+    "         let list = map(copy([1,2,3]), { k,v -> v + 1 })       ✔
+    "         let list = map(tabpagebuflist(), { k,v -> v + 1 })    ✔
     "
     " Why?
     " It gives you the wrong idea that the contents of the variable is a copy
@@ -499,37 +499,40 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     " Ex:
     "
     "         let list1 = [1,2,3]
-    "         let list2 = map(list1, 'v:val + 1')
+    "         let list2 = map(list1, { k,v -> v + 1 })
     "
     " You may think that `list2` is a copy of `list1`, and that changing `list2`
     " shouldn't affect `list1`. Wrong. `list2`  is just another reference
     " pointing to `list1`. Proof:
     "
-    "         call map(list2, 'v:val + 2')
+    "         call map(list2, { k,v -> v + 2 })
     "         → increments all elements of `list2`, but also all elements of `list1`
     "
     " A less confusing way of writing this code would have been:
     "
     "         let list1 = [1,2,3,4,5]
-    "         call map(list1, 'v:val + 1')
+    "         call map(list1, { k,v -> v + 1 })
     "
     " Without assigning the output of `map()` to a variable, we don't get the
     " idea that we have a copy of `list1`. And if we need one, we'll immediately
     " think about `copy()`:
     "
     "         let list1 = [1,2,3,4,5]
-    "         let list2 = map(copy(list1), 'v:val + 1')
+    "         let list2 = map(copy(list1), { k,v -> v + 1 })
 "}}}
-    call map(buffers, "matchstr(v:val, '^badd +\\d\\+ \\zs.*')")
-    call map(buffers, "fnamemodify(v:val, ':p')")
+    call map(buffers, { k,v -> matchstr(v, '^badd +\d\+ \zs.*') })
+    call map(buffers, { k,v -> fnamemodify(v, ':p') })
 
-    let swapfiles = map(copy(buffers), "expand('~/.vim/tmp/swap/').substitute(v:val, '/', '%', 'g').'.swp'")
-    call filter(map(swapfiles, 'glob(v:val, 1)'), 'v:val != ""')
-    "                                       │
-    "                                       └─ ignore 'wildignore'
+    let swapfiles = map(copy(buffers),
+    \                   { k,v ->  expand('~/.vim/tmp/swap/')
+    \                            .substitute(v, '/', '%', 'g')
+    \                            .'.swp' })
+    call filter(map(swapfiles, { k,v -> glob(v, 1) }), { k,v -> v != '' })
+    "                                           │
+    "                                           └─ ignore 'wildignore'
 
     let a_file_is_currently_loaded = !empty(swapfiles)
-    let it_is_not_in_this_session = empty(filter(map(buffers, 'buflisted(v:val)'), 'v:val != 0'))
+    let it_is_not_in_this_session = empty(filter(map(buffers, { k,v -> buflisted(v) }), { k,v -> v != 0 }))
     return [ a_file_is_currently_loaded && it_is_not_in_this_session, get(swapfiles, 0, '') ]
 endfu
 
@@ -625,7 +628,7 @@ endfu
 
 fu! s:suggest_sessions(arglead, _c, _p) abort "{{{2
     let files = glob(s:session_dir.'/*'.a:arglead.'*.vim', 0, 1)
-    return map(files, 'matchstr(v:val, ".*\\.vim/session/\\zs.*\\ze\\.vim")')
+    return map(files, { k,v -> matchstr(v, '.*\.vim/session/\zs.*\ze\.vim') })
 endfu
 
 fu! s:track(on_vimleavepre) abort "{{{2
