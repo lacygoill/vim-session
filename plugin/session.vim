@@ -459,8 +459,8 @@ endfu
 fu! s:safe_to_load_session() abort "{{{2
     return !argc()
        \&& !get(s:, 'read_stdin', 0)
-       \&& filereadable(get(g:, 'MY_LAST_SESSION', 'default'))
-       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', 'default'))[0]
+       \&& filereadable(get(g:, 'MY_LAST_SESSION', s:session_dir.'/default.vim'))
+       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:session_dir.'/default.vim'))[0]
 
     " It's safe to automatically load a session during Vim's startup iff:
     "
