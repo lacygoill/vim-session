@@ -771,12 +771,12 @@ endfu
 
 " Mapping {{{1
 
-nno <silent> <space>R :<c-u>sil call <sid>vim_quit_reload()<cr>
-"                            │
-"                            └─ bypass prompt:
-"                                    “Press ENTER or type command to continue“
+nno  <silent><unique>  <space>R  :<c-u>sil call <sid>vim_quit_reload()<cr>
+"                                      │
+"                                      └─ bypass prompt:
+"                                              “Press ENTER or type command to continue“
 "
-"                               … after executing the shell command
+"                                         … after executing the shell command
 
 " Options {{{1
 " sessionoptions {{{2
