@@ -291,9 +291,9 @@ fu! s:load(file) abort "{{{2
     " associated to filetype detection:
     "
     "         noautocmd so ~/.vim/session/default.vim
-    "         doautoall filetypedetect BufReadPost
-    "                   │
-    "                   └─ $VIMRUNTIME/filetype.vim
+    "         doautoall <nomodeline> filetypedetect BufReadPost
+    "                                │
+    "                                └─ $VIMRUNTIME/filetype.vim
     "
     " But, this would cause other issues:
     "
@@ -302,8 +302,9 @@ fu! s:load(file) abort "{{{2
     "           → in the session file, commands handling folds (e.g. `zo`) would
     "             raise `E490: No fold found`
     "
-    "       `doautoall filetypedetect BufReadPost` would only affect the file in
-    "       which the autocmd calling the current function is installed
+    "       `doautoall  <nomodeline>  filetypedetect   BufReadPost`  would  only
+    "       affect the file in which the autocmd calling the current function is
+    "       installed
     "           → no syntax highlighting everywhere else
     "           → we would have to delay the command with a timer or maybe
     "             a fire-once autocmd
@@ -436,7 +437,7 @@ fu! s:restore_window_local_settings() abort "{{{2
     " event).
     "
     " Why not simply:
-    "       doautoall BufWinEnter
+    "       doautoall <nomodeline> BufWinEnter
     " ?
     " Because `:doautoall` executes the autocmds in the context of the BUFFERS.
     " But their purpose is to set WINDOW-local options.
