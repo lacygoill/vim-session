@@ -389,7 +389,7 @@ endfu
 fu! s:reset_working_directory() abort "{{{2
     let orig = win_getid()
     cd ~/.vim
-    tabdo windo sil cd ~/.vim
+    tabdo windo sil lcd ~/.vim
     call win_gotoid(orig)
 endfu
 
