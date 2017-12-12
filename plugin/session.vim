@@ -325,6 +325,18 @@ fu! s:load(file) abort "{{{2
     call s:restore_help_settings_when_needed()
     call s:restore_window_local_settings()
     call s:rename_tmux_window(file)
+
+    " FIXME:
+    " When we change the local directory of a window A, the next time
+    " Vim creates a session file, it adds the command `:lcd some_dir`.
+    " Because of this, the next time we load this session, all the windows
+    " which are created after the window A inherit the same local directory.
+    " They shouldn't. We have excluded 'curdir' from 'ssop'.
+    "
+    " Open an issue on Vim's repo.
+    " In the meantime,  we invoke a function  to be sure that  the local working
+    " directory of all windows is `~/.vim`.
+    call s:reset_working_directory()
     return ''
 endfu
 
@@ -372,6 +384,13 @@ fu! s:rename_tmux_window(file) abort "{{{2
         " we quit Vim.
         au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
     augroup END
+endfu
+
+fu! s:reset_working_directory() abort "{{{2
+    let orig = win_getid()
+    cd ~/.vim
+    tabdo windo sil cd ~/.vim
+    call win_gotoid(orig)
 endfu
 
 fu! s:restore_help_settings() abort "{{{2
