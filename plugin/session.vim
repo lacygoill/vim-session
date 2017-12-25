@@ -260,11 +260,7 @@ fu! s:load(file) abort "{{{2
     endif
 
     call s:prepare_restoration(file)
-
-    " Even though we don't include 'options' inside 'ssop', a session file
-    " manipulates the value of 'shm'. We save and restore this option
-    " manually, to be sure it won't be changed.
-    let shm_save = &shm
+    let options_save = s:save_options()
 
     " Before restoring a session, we need to set the previous one (for `:SLoad#`).
     " The previous one is:
@@ -319,7 +315,7 @@ fu! s:load(file) abort "{{{2
     "         endif
 "}}}
 
-    let &shm = shm_save
+    call s:restore_options(options_save)
     let g:MY_LAST_SESSION = g:my_session
 
     call s:restore_help_settings_when_needed()
@@ -446,6 +442,12 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
     endif
 endfu
 
+fu! s:restore_options(dict) abort "{{{2
+    for [op, val] in items(a:dict)
+        exe 'let &'.op.' = '.(type(val) == type('') ? string(val) : val)
+    endfor
+endfu
+
 fu! s:restore_window_local_settings() abort "{{{2
     let cur_winid = win_getid()
 
@@ -493,6 +495,19 @@ fu! s:safe_to_load_session() abort "{{{2
     "
     "     No file in the session is already loaded in other instance.
     "     Otherwise, loading it in a 2nd instance would raise the error E325.
+endfu
+
+fu! s:save_options() abort "{{{2
+    " Even  though we  don't include  'options'  inside 'ssop',  a session  file
+    " manipulates the value of 'shm'. We  save and restore this option manually,
+    " to be sure it won't be changed.
+    "
+    " Same thing for 'spr' and 'sb'.
+    return {
+    \        'sb':  &sb,
+    \        'shm': &shm,
+    \        'spr': &spr,
+    \      }
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
