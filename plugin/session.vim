@@ -91,11 +91,11 @@ augroup END
 " command to disappear if no error occurs during its execution.
 " For `:SLoad` and `:STrack`, we use `:exe` because there will always be
 " a message to display; even when everything works fine.
-com! -bar                -complete=customlist,s:suggest_sessions SClose   exe s:close()
-com! -bar -bang -nargs=? -complete=customlist,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
-com! -bar       -nargs=1 -complete=customlist,s:suggest_sessions SRename  exe s:rename(<q-args>)
+com! -bar                -complete=custom,s:suggest_sessions SClose   exe s:close()
+com! -bar -bang -nargs=? -complete=custom,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
+com! -bar       -nargs=1 -complete=custom,s:suggest_sessions SRename  exe s:rename(<q-args>)
 
-com! -bar       -nargs=? -complete=customlist,s:suggest_sessions SLoad    exe s:load(<q-args>)
+com! -bar       -nargs=? -complete=custom,s:suggest_sessions SLoad    exe s:load(<q-args>)
 com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
@@ -661,8 +661,23 @@ fu! session#status() abort "{{{2
 endfu
 
 fu! s:suggest_sessions(arglead, _c, _p) abort "{{{2
-    let files = glob(s:session_dir.'/*'.a:arglead.'*.vim', 0, 1)
-    return map(files, { i,v -> matchstr(v, '.*\.vim/session/\zs.*\ze\.vim') })
+    "           ┌ `glob()` performs 2 things:
+    "           │
+    "           │     • an expansion
+    "           │     • a filtering:  only the files containing `a:arglead`
+    "           │                     in their name will be expanded
+    "           │
+    "           │  … so we don't need to filter the candidates
+    let files = glob(s:session_dir.'/*'.a:arglead.'*.vim')
+    " simplify the names of the session files:
+    " keep only the basename (no path, no extension)
+    return substitute(files, '[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
+    "                         └───┤
+    "                             └ in a regex used to describe text in a BUFFER
+    "                               `.` stands for any character EXCEPT a newline
+    "
+    "                               in a regex used to describe text in a STRING
+    "                               `.` stands for any character INCLUDING a newline
 endfu
 
 fu! s:track(on_vimleavepre) abort "{{{2
