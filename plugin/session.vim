@@ -674,10 +674,10 @@ fu! s:suggest_sessions(arglead, _c, _p) abort "{{{2
     return substitute(files, '[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
     "                         └───┤
     "                             └ in a regex used to describe text in a BUFFER
-    "                               `.` stands for any character EXCEPT a newline
+    "                               `.` stands for any character EXCEPT an end-of-line
     "
     "                               in a regex used to describe text in a STRING
-    "                               `.` stands for any character INCLUDING a newline
+    "                               `.` stands for any character INCLUDING an end-of-line
 endfu
 
 fu! s:track(on_vimleavepre) abort "{{{2
