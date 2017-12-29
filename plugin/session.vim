@@ -742,7 +742,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "     $ vim          restart Vim
             let g:MY_LAST_SESSION = g:my_session
 
-        catch /E788/
+        catch /^Vim\%((\a\+)\)\?:E788/
             " Since Vim 8.0.677, some autocmds listening to `BufWinEnter`
             " may not work all the time. Sometimes they raise the error `E788`.
             " For us, it happens when we open the qf window (`:copen`).
