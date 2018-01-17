@@ -463,7 +463,7 @@ fu! s:restore_window_local_settings() abort "{{{2
     " But their purpose is to set WINDOW-local options.
     " They need to be executed in the context of the windows, not the buffers.
     "
-    " Watch:
+    " MWE:
     "         bufdo setl list          only affects current window
     "         windo setl list          only affects windows in current tabpage
     "         tabdo windo setl list    affects all windows
