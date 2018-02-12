@@ -444,7 +444,7 @@ endfu
 
 fu! s:restore_options(dict) abort "{{{2
     for [op, val] in items(a:dict)
-        exe 'let &'.op.' = '.(type(val) == type('') ? string(val) : val)
+        exe 'let &'.op.' = '.(type(val) ==# type('') ? string(val) : val)
     endfor
 endfu
 
