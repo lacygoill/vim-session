@@ -115,7 +115,7 @@ fu! s:delete(bang, session) abort "{{{2
         return 'echoerr "Add a bang"'
     endif
 
-    if a:session ==# '#'
+    if a:session is# '#'
         if exists('g:MY_PENULTIMATE_SESSION')
             let session_file = g:MY_PENULTIMATE_SESSION
         else
@@ -127,7 +127,7 @@ fu! s:delete(bang, session) abort "{{{2
         \:                     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
     endif
 
-    if exists('g:my_session') && session_file ==# g:my_session
+    if exists('g:my_session') && session_file is# g:my_session
         if exists('g:MY_PENULTIMATE_SESSION')
             " We have to load the alternate session BEFORE deleting the session
             " file, because `:SLoad#` will take a last snapshot of the current
@@ -238,7 +238,7 @@ endfu
 fu! s:load(file) abort "{{{2
     let file = empty(a:file)
     \?             get(g:, 'MY_LAST_SESSION', '')
-    \:         a:file ==# '#'
+    \:         a:file is# '#'
     \?             get(g:, 'MY_PENULTIMATE_SESSION', '')
     \:         a:file =~# '/'
     \?             fnamemodify(a:file, ':p')
@@ -255,7 +255,7 @@ fu! s:load(file) abort "{{{2
     elseif s:session_loaded_in_other_instance(file)[0]
         let file = substitute(fnamemodify(s:session_loaded_in_other_instance(file)[1], ':t:r'), '%', '/', 'g')
         return 'echoerr '.string(printf('%s is already loaded in another Vim instance', file))
-    elseif exists('g:my_session') && file ==# g:my_session
+    elseif exists('g:my_session') && file is# g:my_session
         return 'echoerr '.string(printf('%s is already the current session', fnamemodify(file, ':t')))
     endif
 
