@@ -561,7 +561,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     \                   { i,v ->  expand('~/.vim/tmp/swap/')
     \                            .substitute(v, '/', '%', 'g')
     \                            .'.swp' })
-    call filter(map(swapfiles, { i,v -> glob(v, 1) }), { i,v -> v != '' })
+    call filter(map(swapfiles, { i,v -> glob(v, 1) }), { i,v -> v isnot# '' })
     "                                           │
     "                                           └─ ignore 'wildignore'
 
