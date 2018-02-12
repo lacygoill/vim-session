@@ -566,7 +566,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     "                                           └─ ignore 'wildignore'
 
     let a_file_is_currently_loaded = !empty(swapfiles)
-    let it_is_not_in_this_session = empty(filter(map(buffers, { i,v -> buflisted(v) }), { i,v -> v != 0 }))
+    let it_is_not_in_this_session = empty(filter(map(buffers, { i,v -> buflisted(v) }), { i,v -> v !=# 0 }))
     return [ a_file_is_currently_loaded && it_is_not_in_this_session, get(swapfiles, 0, '') ]
 endfu
 
