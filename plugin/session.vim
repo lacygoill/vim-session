@@ -124,7 +124,7 @@ fu! s:delete(bang, session) abort "{{{2
     else
         let session_file = empty(a:session)
         \?                     get(g:, 'my_session', 'MY_LAST_SESSION')
-        \:                     fnamemodify(s:session_dir.'/'.a:session.'.vim', ':p')
+        \:                     fnamemodify(s:SESSION_DIR.'/'.a:session.'.vim', ':p')
     endif
 
     if exists('g:my_session') && session_file is# g:my_session
@@ -242,7 +242,7 @@ fu! s:load(file) abort "{{{2
     \?             get(g:, 'MY_PENULTIMATE_SESSION', '')
     \:         a:file =~# '/'
     \?             fnamemodify(a:file, ':p')
-    \:             s:session_dir.'/'.a:file.'.vim'
+    \:             s:SESSION_DIR.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
@@ -351,7 +351,7 @@ endfu
 
 fu! s:rename(new_name) abort "{{{2
     let src = g:my_session
-    let dst = expand(s:session_dir.'/'.a:new_name.'.vim')
+    let dst = expand(s:SESSION_DIR.'/'.a:new_name.'.vim')
 
     if rename(src, dst)
         return 'echoerr '.string('Failed to rename '.src.' to '.dst)
@@ -480,8 +480,8 @@ endfu
 fu! s:safe_to_load_session() abort "{{{2
     return !argc()
        \&& !get(s:, 'read_stdin', 0)
-       \&& filereadable(get(g:, 'MY_LAST_SESSION', s:session_dir.'/default.vim'))
-       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:session_dir.'/default.vim'))[0]
+       \&& filereadable(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))
+       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))[0]
 
     " It's safe to automatically load a session during Vim's startup iff:
     "
@@ -668,7 +668,7 @@ fu! s:suggest_sessions(arglead, _c, _p) abort "{{{2
     "           │                     in their name will be expanded
     "           │
     "           │  … so we don't need to filter the candidates
-    let files = glob(s:session_dir.'/*'.a:arglead.'*.vim')
+    let files = glob(s:SESSION_DIR.'/*'.a:arglead.'*.vim')
     " simplify the names of the session files:
     " keep only the basename (no path, no extension)
     return substitute(files, '[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
@@ -798,10 +798,10 @@ fu! s:where_do_we_save() abort "{{{2
     " :STrack ∅
     if empty(s:file)
         if empty(s:last_used_session)
-            if !isdirectory(s:session_dir)
-                call mkdir(s:session_dir)
+            if !isdirectory(s:SESSION_DIR)
+                call mkdir(s:SESSION_DIR)
             endif
-            return s:session_dir.'/default.vim'
+            return s:SESSION_DIR.'/default.vim'
         else
             return s:last_used_session
         endif
@@ -814,7 +814,7 @@ fu! s:where_do_we_save() abort "{{{2
     else
         return s:file =~# '/'
         \?         fnamemodify(s:file, ':p')
-        \:         s:session_dir.'/'.s:file.'.vim'
+        \:         s:SESSION_DIR.'/'.s:file.'.vim'
     endif
 endfu
 
@@ -863,7 +863,7 @@ set viminfo^=!
 
 " Variables {{{1
 
-let s:session_dir = get(s:, 'my_session_dir', $HOME.'/.vim/session')
+let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 
 " Documentation {{{1
 " Design {{{2
