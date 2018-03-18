@@ -480,6 +480,7 @@ endfu
 fu! s:safe_to_load_session() abort "{{{2
     return !argc()
        \&& !get(s:, 'read_stdin', 0)
+       \&& &errorfile =~# 'errors\.err'
        \&& filereadable(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))
        \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))[0]
 
@@ -490,6 +491,8 @@ fu! s:safe_to_load_session() abort "{{{2
     "     immediately lost by a restored session.
     "
     "     Vim isn't used in a pipeline.
+    "
+    "     Vim wasn't started with the `-q` option.
     "
     "     There's a readable session file to load.
     "
