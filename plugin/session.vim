@@ -468,11 +468,11 @@ fu! s:restore_window_local_settings() abort "{{{2
     "         windo setl list          only affects windows in current tabpage
     "         tabdo windo setl list    affects all windows
 
-    tabdo windo sil! doautocmd <nomodeline> BufWinEnter
-    " │   │        │
-    " │   │        └─ an error shouldn't interrupt the process
-    " │   └─ iterate over windows
-    " └─ iterate over tabpages
+    sil! tabdo windo doautocmd <nomodeline> BufWinEnter
+    "  │ │     │
+    "  │ │     └─ iterate over windows
+    "  │ └─ iterate over tabpages
+    "  └─ an error shouldn't interrupt the process
 
     call win_gotoid(cur_winid)
 endfu
