@@ -123,8 +123,8 @@ fu! s:delete(bang, session) abort "{{{2
         endif
     else
         let session_file = empty(a:session)
-        \?                     get(g:, 'my_session', 'MY_LAST_SESSION')
-        \:                     fnamemodify(s:SESSION_DIR.'/'.a:session.'.vim', ':p')
+                       \ ?     get(g:, 'my_session', 'MY_LAST_SESSION')
+                       \ :     fnamemodify(s:SESSION_DIR.'/'.a:session.'.vim', ':p')
     endif
 
     if exists('g:my_session') && session_file is# g:my_session
@@ -237,12 +237,12 @@ endfu
 
 fu! s:load(file) abort "{{{2
     let file = empty(a:file)
-    \?             get(g:, 'MY_LAST_SESSION', '')
-    \:         a:file is# '#'
-    \?             get(g:, 'MY_PENULTIMATE_SESSION', '')
-    \:         a:file =~# '/'
-    \?             fnamemodify(a:file, ':p')
-    \:             s:SESSION_DIR.'/'.a:file.'.vim'
+           \ ?     get(g:, 'MY_LAST_SESSION', '')
+           \ : a:file is# '#'
+           \ ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
+           \ : a:file =~# '/'
+           \ ?     fnamemodify(a:file, ':p')
+           \ :     s:SESSION_DIR.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
@@ -816,8 +816,8 @@ fu! s:where_do_we_save() abort "{{{2
     " :STrack file
     else
         return s:file =~# '/'
-        \?         fnamemodify(s:file, ':p')
-        \:         s:SESSION_DIR.'/'.s:file.'.vim'
+           \ ?     fnamemodify(s:file, ':p')
+           \ :     s:SESSION_DIR.'/'.s:file.'.vim'
     endif
 endfu
 
