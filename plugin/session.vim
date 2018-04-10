@@ -332,7 +332,13 @@ fu! s:load(file) abort "{{{2
     " Open an issue on Vim's repo.
     " In the meantime,  we invoke a function  to be sure that  the local working
     " directory of all windows is `~/.vim`.
-    call s:reset_working_directory()
+    "
+    "     let orig = win_getid()
+    "     sil tabdo windo cd ~/.vim
+    "     call win_gotoid(orig)
+    "
+    " Update:
+    " I've commented the code because it interferes with `vim-cwd`.
     return ''
 endfu
 
@@ -380,12 +386,6 @@ fu! s:rename_tmux_window(file) abort "{{{2
         " we quit Vim.
         au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
     augroup END
-endfu
-
-fu! s:reset_working_directory() abort "{{{2
-    let orig = win_getid()
-    sil tabdo windo cd ~/.vim
-    call win_gotoid(orig)
 endfu
 
 fu! s:restore_help_settings() abort "{{{2
