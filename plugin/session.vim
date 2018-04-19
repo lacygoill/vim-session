@@ -96,7 +96,7 @@ com! -bar -bang -nargs=? -complete=custom,s:suggest_sessions SDelete  exe s:dele
 com! -bar       -nargs=1 -complete=custom,s:suggest_sessions SRename  exe s:rename(<q-args>)
 
 com! -bar       -nargs=? -complete=custom,s:suggest_sessions SLoad    exe s:load(<q-args>)
-com! -bar -bang -nargs=? -complete=file                          STrack   exe s:handle_session(<bang>0, <q-args>)
+com! -bar -bang -nargs=? -complete=file                      STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
 fu! s:close() abort "{{{2
@@ -315,9 +315,23 @@ fu! s:load(file) abort "{{{2
     "         endif
 "}}}
 
-    call s:restore_options(options_save)
+    " Why?{{{
+    "
+    " `g:my_session` should exist because all session files should contain:
+    "
+    "         let g:my_session = v:this_session
+    "
+    " However, once, I had an issue where this line was missing in a session file.
+    " This lead to an  issue where, when I restarted Vim,  the wrong session was
+    " systematically loaded.
+    " So, now, I make sure that the command is executed no matter what.
+    "}}}
+    if !exists('g:my_session')
+        let g:my_session = v:this_session
+    endif
     let g:MY_LAST_SESSION = g:my_session
 
+    call s:restore_options(options_save)
     call s:restore_help_settings_when_needed()
     call s:restore_window_local_settings()
     call s:rename_tmux_window(file)
