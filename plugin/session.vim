@@ -315,20 +315,6 @@ fu! s:load(file) abort "{{{2
     "         endif
 "}}}
 
-    " Why?{{{
-    "
-    " `g:my_session` should exist because all session files should contain:
-    "
-    "         let g:my_session = v:this_session
-    "
-    " However, once, I had an issue where this line was missing in a session file.
-    " This lead to an  issue where, when I restarted Vim,  the wrong session was
-    " systematically loaded.
-    " So, now, I make sure that the command is executed no matter what.
-    "}}}
-    if !exists('g:my_session')
-        let g:my_session = v:this_session
-    endif
     let g:MY_LAST_SESSION = g:my_session
 
     call s:restore_options(options_save)
@@ -747,6 +733,13 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "         doautoall SessionLoadPost
             "         unlet SessionLoad
             "         vim: set ft=vim : (modeline)
+            call insert(body, 'let g:my_session = v:this_session', -3)
+            " Why twice?{{{
+            "
+            " Once, I had an issue where this line was missing in a session file.
+            " This  lead to  an issue  where, when  I restarted  Vim, the  wrong
+            " session was systematically loaded.
+            "}}}
             call insert(body, 'let g:my_session = v:this_session', -3)
             call writefile(body, g:my_session)
 
