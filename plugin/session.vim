@@ -286,7 +286,7 @@ fu! s:load(file) abort "{{{2
     " disabled, THEN emit `BufReadPost` in all buffers, to execute the autocmds
     " associated to filetype detection:
     "
-    "         noautocmd so ~/.vim/session/default.vim
+    "         noa so ~/.vim/session/default.vim
     "         doautoall <nomodeline> filetypedetect BufReadPost
     "                                │
     "                                └─ $VIMRUNTIME/filetype.vim
