@@ -714,8 +714,31 @@ fu! s:track(on_vimleavepre) abort "{{{2
     if exists('g:my_session')
         try
             if a:on_vimleavepre
-                " empty arglist, we don't want to restore it when we restart Vim
-                %argd
+                " What does it do?{{{
+                "
+                " It removes the global arglist, as well as the one local to any
+                " window.
+                "}}}
+                " Why do it?{{{
+                "
+                " Because, for some reason, Vim takes a long time to re-populate
+                " a long arglist when sourcing a session.
+                " MWE:
+                "     :args $VIMRUNTIME/**/*.vim
+                "     SPC R
+                "}}}
+                " Why not simply `%argd`?{{{
+                "
+                " It would fail  to remove a long local arglist  associated to a
+                " window other than the currently focused one.
+                "
+                " MWE:
+                "     " :argadd affects the local arglist
+                "     :argadd $VIMRUNTIME/**/*.vim
+                "     " focus another window
+                "     SPC R
+                "}}}
+                tabdo windo %argd
             endif
             "             ┌─ overwrite any existing file
             "             │
