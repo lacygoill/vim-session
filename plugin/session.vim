@@ -716,8 +716,13 @@ fu! s:track(on_vimleavepre) abort "{{{2
             if a:on_vimleavepre
                 " Why do it?{{{
                 "
-                " Because, for some reason, Vim takes a long time to re-populate
-                " a long arglist when sourcing a session.
+                " Because, Vim takes  a long time to re-populate  a long arglist
+                " when sourcing a session.
+                "
+                " This is due to the fact that `:mksession` doesn't write in the
+                " session file the same command we used to populate the arglist.
+                " Instead, it executes `:argadd` for EVERY file in the arglist.
+                "
                 " MWE:
                 "     :args $VIMRUNTIME/**/*.vim
                 "     SPC R
