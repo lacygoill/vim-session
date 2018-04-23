@@ -733,8 +733,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
                 " window other than the currently focused one.
                 "
                 " MWE:
-                "     " :argadd affects the local arglist
-                "     :argadd $VIMRUNTIME/**/*.vim
+                "     :args $VIMRUNTIME/**/*.vim
                 "     " focus another window
                 "     SPC R
                 "}}}
