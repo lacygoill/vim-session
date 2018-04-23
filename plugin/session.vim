@@ -714,11 +714,6 @@ fu! s:track(on_vimleavepre) abort "{{{2
     if exists('g:my_session')
         try
             if a:on_vimleavepre
-                " What does it do?{{{
-                "
-                " It removes the global arglist, as well as the one local to any
-                " window.
-                "}}}
                 " Why do it?{{{
                 "
                 " Because, for some reason, Vim takes a long time to re-populate
@@ -737,7 +732,10 @@ fu! s:track(on_vimleavepre) abort "{{{2
                 "     " focus another window
                 "     SPC R
                 "}}}
-                tabdo windo %argd
+                " remove the global arglist
+                argg | %argd
+                " remove all the local arglists
+                sil! noa tabdo windo argl | %argd
             endif
             "             ┌─ overwrite any existing file
             "             │
