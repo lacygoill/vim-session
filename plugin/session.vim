@@ -432,7 +432,7 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
     " We don't want that, so we save the current buffer number, to restore it later.
     let cur_bufnr = bufnr('%')
 
-    sil! bufdo if expand('%') =~# '/doc/.*\.txt$'
+    sil! bufdo if expand('%:p') =~# '/doc/.*\.txt$'
             \|     call s:restore_help_settings()
             \| endif
 
