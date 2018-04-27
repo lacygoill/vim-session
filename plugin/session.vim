@@ -3,6 +3,10 @@ if exists('g:loaded_session')
 endif
 let g:loaded_session = 1
 
+" TODO:
+" Maybe we should consider removing the concept of a default session.
+" We never use it, and it adds some complexity to the plugin.
+
 " Autocmds {{{1
 
 augroup my_session
