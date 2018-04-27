@@ -1069,7 +1069,7 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 " TODO:
 " Is it really useful?
 " If not, remove this feature.
-" I've added it  because `:SLoad dir/` createa session file  in `dir/`, which is
+" I've added it because `:SLoad dir/` create  a session file in `dir/`, which is
 " not `~/.vim/session`.
 "
 " If you keep it,  `:SLoad` should be able to suggest the names  of the files in
