@@ -7,6 +7,11 @@ let g:loaded_session = 1
 " Maybe we should consider removing the concept of a default session.
 " We never use it, and it adds some complexity to the plugin.
 
+" TODO:
+" Maybe add a  command opening a buffer  showing all session names  with a short
+" description.
+" When you would click on one, you would have a longer description in a split.
+
 " Autocmds {{{1
 
 augroup my_session
@@ -16,7 +21,8 @@ augroup my_session
     "             ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
     "             │
     "             │         ┌ I don't like sourcing the default session automatically;
-    "             │         │ when it happens, it's never what I wanted, and it's confusing
+    "             │         │ when it happens, it's never what I wanted, and it's very confusing,
+    "             │         │ because I lose time wondering where the loaded files come from.
     "             │         │
     au VimEnter * nested if get(g:, 'MY_LAST_SESSION', '') !~# '/default.vim$' && s:safe_to_load_session()
                       \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', '')
