@@ -1066,6 +1066,17 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
 
 
+" TODO:
+" Is it really useful?
+" If not, remove this feature.
+" I've added it  because `:SLoad dir/` createa session file  in `dir/`, which is
+" not `~/.vim/session`.
+"
+" If you keep it,  `:SLoad` should be able to suggest the names  of the files in
+" `dir/`.
+" It would  need to  deduce from  what you've typed,  whether it's  a part  of a
+" session name, or of a path (relative/absolute) to a session file.
+
 "     :SLoad /path/to/session.vim
 "
 " Load session stored in `/path/to/session.vim`.
