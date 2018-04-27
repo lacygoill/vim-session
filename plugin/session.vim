@@ -9,10 +9,13 @@ augroup my_session
     au!
     au StdInReadPost * let s:read_stdin = 1
 
-    "             ┌─ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
+    "             ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
     "             │
-    au VimEnter * nested if s:safe_to_load_session()
-                      \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', 'default')
+    "             │         ┌ I don't like sourcing the default session automatically;
+    "             │         │ when it happens, it's never what I wanted, and it's confusing
+    "             │         │
+    au VimEnter * nested if get(g:, 'MY_LAST_SESSION', '') !~# '/default.vim$' && s:safe_to_load_session()
+                      \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', '')
                       \| endif
 
     " Purpose of the next 3 autocmds: {{{
@@ -796,9 +799,9 @@ fu! s:track(on_vimleavepre) abort "{{{2
             " which would execute arbitrary code:
             "     https://github.com/vim/vim/issues/1839#issuecomment-315489118
         catch
-            " If sth goes wrong now, it will probably go wrong next time.
-            " We don't want to go on trying to save a session, if `default.vim`
-            " isn't writable for example.
+            " If sth  goes wrong now  (ex: session  file not writable),  it will
+            " probably go wrong next time.
+            " We don't want to go on trying to save a session.
             unlet! g:my_session
 
             " update all status lines, to remove the `[∞]` item
