@@ -1062,6 +1062,11 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
 
 
+"     :SLoad /path/to/session.vim
+"
+" Load session stored in `/path/to/session.vim`.
+
+
 "     :SClose
 "
 " Close the session:  stop the tracking of the session, and close all windows
