@@ -28,6 +28,7 @@ let g:loaded_session = 1
 " inside the working  directory, and source it  if it finds one, then  use it to
 " track the session.
 " This would allow us to not have to name all our sessions.
+" Also, `:STrack ∅` should save & track the current session in `:pwd`/session.vim.
 
 " Autocmds {{{1
 
@@ -1050,8 +1051,12 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "
 " If the tracking of a session is running:  pause it
 " If the tracking of a session is paused:   resume it
+"
 " If no session is being tracked, start tracking the current session in
 " ~/.vim/session/default.vim
+" FIXME:
+" It should be in:
+"     `:pwd`/session.vim
 
 
 "     :STrack!
