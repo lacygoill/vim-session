@@ -12,6 +12,17 @@ let g:loaded_session = 1
 " description.
 " When you would click on one, you would have a longer description in a split.
 
+" FIXME:
+" :e ~/Dropbox/wiki/par/par.md
+" :SClose
+" :STrack par
+"     → the session is saved in ~/Dropbox/wiki/par/default.vim
+"       it should be in ~/.vim/session/par.vim
+"
+" I think it's an argument in favor of removing the feature `:STrack dir/`.
+" Or, we  would need to tell  the plugin that  it should interpret `par`  as the
+" name of a directory iff it's followed by a slash.
+
 " Autocmds {{{1
 
 augroup my_session
