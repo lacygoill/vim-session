@@ -23,6 +23,12 @@ let g:loaded_session = 1
 " Or, we  would need to tell  the plugin that  it should interpret `par`  as the
 " name of a directory iff it's followed by a slash.
 
+" TODO:
+" When Vim  starts, we could  tell the plugin to  look for a  `session.vim` file
+" inside the working  directory, and source it  if it finds one, then  use it to
+" track the session.
+" This would allow us to not have to name all our sessions.
+
 " Autocmds {{{1
 
 augroup my_session
