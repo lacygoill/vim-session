@@ -353,6 +353,9 @@ fu! s:load(file) abort "{{{2
     call s:restore_window_local_settings()
     call s:rename_tmux_window(file)
 
+    " use the global arglist in all windows
+    tabdo windo argg
+
     " FIXME:
     " When we change the local directory of a window A, the next time
     " Vim creates a session file, it adds the command `:lcd some_dir`.
