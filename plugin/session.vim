@@ -354,6 +354,22 @@ fu! s:load(file) abort "{{{2
     call s:rename_tmux_window(file)
 
     " use the global arglist in all windows
+    " Why is it needed?{{{
+    "
+    " Before saving a session, we remove the  global arglist, as well as all the
+    " local arglists.
+    " I think that because of this, the session file executes these commands:
+    "
+    "     arglocal
+    "     silent! argdel *
+    "
+    " ... for every window.
+    " The `:arglocal` causes all windows to use the arglist by default.
+    "
+    " I don't want that.
+    " By default, Vim uses the global arglist, which should be the rule.
+    " Using a local arglist should be the exception.
+    "}}}
     tabdo windo argg
 
     " FIXME:
