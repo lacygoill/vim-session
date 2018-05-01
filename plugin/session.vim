@@ -38,11 +38,13 @@ augroup my_session
 
     "             ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
     "             │
-    "             │         ┌ I don't like sourcing the default session automatically;
-    "             │         │ when it happens, it's never what I wanted, and it's very confusing,
-    "             │         │ because I lose time wondering where the loaded files come from.
-    "             │         │
-    au VimEnter * nested if get(g:, 'MY_LAST_SESSION', '') !~# '/default.vim$' && s:safe_to_load_session()
+    "             │    I don't like sourcing the default session ┐
+    "             │    automatically; when it happens,           │
+    "             │    it's never what I wanted, and it's very   │
+    "             │    confusing, because I lose time wondering  │             ┌ If there's no last session,
+    "             │    where the loaded files come from.         │             │ don't try to restore anything.
+    "             │                                              │             │
+    au VimEnter * nested if get(g:, 'MY_LAST_SESSION', '') !~# '/default.vim$\|^$' && s:safe_to_load_session()
                       \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', '')
                       \| endif
 
