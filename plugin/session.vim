@@ -45,8 +45,8 @@ augroup my_session
     "             │    where the loaded files come from.         │             │ don't try to restore anything.
     "             │                                              │             │
     au VimEnter * nested if get(g:, 'MY_LAST_SESSION', '') !~# '/default.vim$\|^$' && s:safe_to_load_session()
-                      \|     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', '')
-                      \| endif
+                     \ |     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', '')
+                     \ | endif
 
     " Purpose of the next 3 autocmds: {{{
     "
@@ -485,8 +485,8 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
     let cur_bufnr = bufnr('%')
 
     sil! bufdo if expand('%:p') =~# '/doc/.*\.txt$'
-            \|     call s:restore_help_settings()
-            \| endif
+           \ |     call s:restore_help_settings()
+           \ | endif
 
     " I had an `E86` error once (buffer didn't exist anymore).
     if bufexists(cur_bufnr)
@@ -531,10 +531,10 @@ endfu
 
 fu! s:safe_to_load_session() abort "{{{2
     return !argc()
-       \&& !get(s:, 'read_stdin', 0)
-       \&& &errorfile is# 'errors.err'
-       \&& filereadable(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))
-       \&& !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))[0]
+      \ && !get(s:, 'read_stdin', 0)
+      \ && &errorfile is# 'errors.err'
+      \ && filereadable(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))
+      \ && !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))[0]
 
     " It's safe to automatically load a session during Vim's startup iff:
     "
