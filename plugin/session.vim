@@ -802,9 +802,6 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "   │
             let body = readfile(g:my_session)
 
-            " Restoring a terminal buffer can cause issues.
-            call filter(body, {i,v -> v !~# '\<term://'})
-
             " add the Ex command:
             "         let g:my_session = v:this_session
             "
@@ -866,7 +863,9 @@ fu! s:track(on_vimleavepre) abort "{{{2
 endfu
 
 fu! s:vim_quit_reload() abort "{{{2
-    update
+    "  ┌ there could be an error if we're in a terminal buffer (E382)
+    "  │
+    sil! update
     " Source:
     " https://www.reddit.com/r/vim/comments/5lj75f/how_to_reload_vim_completely_using_zsh_exit_to/
     "
