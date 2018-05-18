@@ -802,6 +802,9 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "   │
             let body = readfile(g:my_session)
 
+            " Restoring a terminal buffer can cause issues.
+            call filter(body, {i,v -> v !~# '\<term://'})
+
             " add the Ex command:
             "         let g:my_session = v:this_session
             "
