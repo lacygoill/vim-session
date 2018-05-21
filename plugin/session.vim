@@ -869,7 +869,7 @@ fu! s:vim_quit_reload() abort "{{{2
     " Source:
     " https://www.reddit.com/r/vim/comments/5lj75f/how_to_reload_vim_completely_using_zsh_exit_to/
     "
-    " For the shell to restart Vim after quitting, we need to add this in `~/.zshrc`:
+    " For the shell to restart Vim after quitting, we need to add this in `~/.shrc`:
     "
     "         catch_signal_usr1() {
     "           trap catch_signal_usr1 USR1
@@ -880,7 +880,7 @@ fu! s:vim_quit_reload() abort "{{{2
 
     " Send the signal `USR1` to the shell  parent of the current Vim instance to
     " relaunch Vim.
-    !kill -USR1 $(ps -p $(ps -p $$ -o ppid=) -o ppid=)
+    call system('kill -USR1 $(ps -p $(ps -p $$ -o ppid=) -o ppid=)')
     qa!
 endfu
 
