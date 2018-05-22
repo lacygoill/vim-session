@@ -880,6 +880,10 @@ fu! s:vim_quit_reload() abort "{{{2
 
     " Send the signal `USR1` to the shell  parent of the current Vim instance to
     " relaunch Vim.
+    " Do NOT use `:!`.{{{
+    "
+    " It would cause a hit-enter prompt when Vim restarts.
+    "}}}
     call system('kill -USR1 $(ps -p $(ps -p $$ -o ppid=) -o ppid=)')
     qa!
 endfu
@@ -910,12 +914,7 @@ endfu
 
 " Mapping {{{1
 
-nno  <silent><unique>  <space>R  :<c-u>sil call <sid>vim_quit_reload()<cr>
-"                                      │
-"                                      └─ bypass prompt:
-"                                              “Press ENTER or type command to continue“
-"
-"                                         … after executing the shell command
+nno  <silent><unique>  <space>R  :<c-u>call <sid>vim_quit_reload()<cr>
 
 " Options {{{1
 " sessionoptions {{{2
