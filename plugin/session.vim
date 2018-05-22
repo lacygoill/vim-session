@@ -875,11 +875,8 @@ fu! s:vim_quit_reload() abort "{{{2
     "
     " It would cause a hit-enter prompt when Vim restarts.
     "}}}
-    "                               ┌ pid of the current Vim process
-    "                               │
-    "                               ├──────────────────┐
-    call system('kill -USR1 $(ps -p $(ps -p $$ -o ppid=) -o ppid=)')
-    "                       ├─────────────────────────────────────┘
+    call system('kill -USR1 $(ps -p '.getpid().' -o ppid=)')
+    "                       ├────────────────────────────┘
     "                       │
     "                       └ pid of the shell parent of Vim
 
