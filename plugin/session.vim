@@ -4,9 +4,20 @@ endif
 let g:loaded_session = 1
 
 " TODO:
+" Maybe we should consider removing the concept of a default session.
+" We never use it, and it adds some complexity to the plugin.
+
+" TODO:
 " Maybe add a  command opening a buffer  showing all session names  with a short
 " description.
 " When you would click on one, you would have a longer description in a split.
+
+" TODO:
+" When Vim  starts, we could  tell the plugin to  look for a  `session.vim` file
+" inside the working  directory, and source it  if it finds one, then  use it to
+" track the session.
+" This would allow us to not have to name all our sessions.
+" Also, `:STrack ∅` should save & track the current session in `:pwd`/session.vim.
 
 " Autocmds {{{1
 
@@ -252,14 +263,12 @@ fu! s:load(file) abort "{{{2
            \ : a:file is# '#'
            \ ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
            \ : a:file =~# '/'
-           \ ?     'full path not supported'
+           \ ?     fnamemodify(a:file, ':p')
            \ :     s:SESSION_DIR.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
-    if file is# 'full path not supported'
-        return 'echoerr "simply provide the name of a session; not a full path to a session file"'
-    elseif empty(file)
+    if empty(file)
         return 'echoerr "No session to load"'
     elseif !filereadable(file)
         " Do NOT use `printf()` like this
@@ -1067,6 +1076,9 @@ let s:SESSION_DIR = $HOME.'/.vim/session'
 "
 " If no session is being tracked, start tracking the current session in
 " ~/.vim/session/default.vim
+" FIXME:
+" It should be in:
+"     `:pwd`/session.vim
 
 
 "     :STrack!
@@ -1102,6 +1114,22 @@ let s:SESSION_DIR = $HOME.'/.vim/session'
 "     :SDelete! foo
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
+
+
+" TODO:
+" Is `:SLoad /path/to/session.vim` really useful?
+" If not, remove this feature.
+" I've added it because `:SLoad dir/` create  a session file in `dir/`, which is
+" not `~/.vim/session`.
+"
+" If you keep it,  `:SLoad` should be able to suggest the names  of the files in
+" `dir/`.
+" It would  need to  deduce from  what you've typed,  whether it's  a part  of a
+" session name, or of a path (relative/absolute) to a session file.
+
+"     :SLoad /path/to/session.vim
+"
+" Load session stored in `/path/to/session.vim`.
 
 
 "     :SClose
