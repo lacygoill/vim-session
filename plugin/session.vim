@@ -4,31 +4,9 @@ endif
 let g:loaded_session = 1
 
 " TODO:
-" Maybe we should consider removing the concept of a default session.
-" We never use it, and it adds some complexity to the plugin.
-
-" TODO:
 " Maybe add a  command opening a buffer  showing all session names  with a short
 " description.
 " When you would click on one, you would have a longer description in a split.
-
-" FIXME:
-" :e ~/Dropbox/wiki/par/par.md
-" :SClose
-" :STrack par
-"     → the session is saved in ~/Dropbox/wiki/par/default.vim
-"       it should be in ~/.vim/session/par.vim
-"
-" I think it's an argument in favor of removing the feature `:STrack dir/`.
-" Or, we  would need to tell  the plugin that  it should interpret `par`  as the
-" name of a directory iff it's followed by a slash.
-
-" TODO:
-" When Vim  starts, we could  tell the plugin to  look for a  `session.vim` file
-" inside the working  directory, and source it  if it finds one, then  use it to
-" track the session.
-" This would allow us to not have to name all our sessions.
-" Also, `:STrack ∅` should save & track the current session in `:pwd`/session.vim.
 
 " Autocmds {{{1
 
@@ -274,12 +252,14 @@ fu! s:load(file) abort "{{{2
            \ : a:file is# '#'
            \ ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
            \ : a:file =~# '/'
-           \ ?     fnamemodify(a:file, ':p')
+           \ ?     'full path not supported'
            \ :     s:SESSION_DIR.'/'.a:file.'.vim'
 
     let file = resolve(file)
 
-    if empty(file)
+    if file is# 'full path not supported'
+        return 'echoerr "simply provide the name of a session; not a full path to a session file"'
+    elseif empty(file)
         return 'echoerr "No session to load"'
     elseif !filereadable(file)
         " Do NOT use `printf()` like this
@@ -899,7 +879,25 @@ fu! s:where_do_we_save() abort "{{{2
 
     " :STrack dir/
     elseif isdirectory(s:file)
-        return fnamemodify(s:file, ':p').'default.vim'
+        echohl ErrorMsg
+        echo 'provide the name of a session file; not a directory'
+        echohl NONE
+        " Why don't you return anything?{{{
+        "
+        " Like:
+        "
+        "     return fnamemodify(s:file, ':p').'default.vim'
+        "
+        " Because:
+        "     :e ~/Dropbox/wiki/par/par.md
+        "     :SClose
+        "     :STrack par
+        "         → the session is saved in ~/Dropbox/wiki/par/default.vim
+        "           it should be in ~/.vim/session/par.vim
+        "
+        " I think it's an argument in favor of not supporting the feature `:STrack dir/`.
+        "}}}
+        return ''
 
     " :STrack file
     else
@@ -949,7 +947,7 @@ set viminfo^=!
 
 " Variables {{{1
 
-let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
+let s:SESSION_DIR = $HOME.'/.vim/session'
 
 " Documentation {{{1
 " Design {{{2
@@ -1061,10 +1059,6 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 " `:STrack!` invokes `:mksession!`, which tries to overwrite the file no matter what.
 
 
-"     :STrack dir/
-"
-" Invoke `:STrack` on `dir/default.vim`.
-
 
 "     :STrack
 "
@@ -1073,9 +1067,6 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "
 " If no session is being tracked, start tracking the current session in
 " ~/.vim/session/default.vim
-" FIXME:
-" It should be in:
-"     `:pwd`/session.vim
 
 
 "     :STrack!
@@ -1111,22 +1102,6 @@ let s:SESSION_DIR = get(s:, 'my_session_dir', $HOME.'/.vim/session')
 "     :SDelete! foo
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
-
-
-" TODO:
-" Is it really useful?
-" If not, remove this feature.
-" I've added it because `:SLoad dir/` create  a session file in `dir/`, which is
-" not `~/.vim/session`.
-"
-" If you keep it,  `:SLoad` should be able to suggest the names  of the files in
-" `dir/`.
-" It would  need to  deduce from  what you've typed,  whether it's  a part  of a
-" session name, or of a path (relative/absolute) to a session file.
-
-"     :SLoad /path/to/session.vim
-"
-" Load session stored in `/path/to/session.vim`.
 
 
 "     :SClose
