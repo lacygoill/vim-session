@@ -704,7 +704,7 @@ fu! session#status() abort "{{{2
     return ['', '[S]', '[∞]'][state]
 endfu
 
-fu! s:suggest_sessions(arglead, _c, _p) abort "{{{2
+fu! s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
     "           ┌ `glob()` performs 2 things:
     "           │
     "           │     • an expansion
