@@ -249,33 +249,33 @@ fu! s:handle_session(bang, file) abort "{{{2
     endtry
 endfu
 
-fu! s:load(file) abort "{{{2
-    let file = empty(a:file)
+fu! s:load(session_file) abort "{{{2
+    let session_file = empty(a:session_file)
            \ ?     get(g:, 'MY_LAST_SESSION', '')
-           \ : a:file is# '#'
+           \ : a:session_file is# '#'
            \ ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
-           \ : a:file =~# '/'
-           \ ?     fnamemodify(a:file, ':p')
-           \ :     s:SESSION_DIR.'/'.a:file.'.vim'
+           \ : a:session_file =~# '/'
+           \ ?     fnamemodify(a:session_file, ':p')
+           \ :     s:SESSION_DIR.'/'.a:session_file.'.vim'
 
-    let file = resolve(file)
+    let session_file = resolve(session_file)
 
-    if empty(file)
+    if empty(session_file)
         return 'echoerr "No session to load"'
-    elseif !filereadable(file)
+    elseif !filereadable(session_file)
         " Do NOT use `printf()` like this
-        "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(file, ':t'))
-        return 'echoerr '.string(printf("%s doesn't exist, or it's not readable", fnamemodify(file, ':t')))
-    elseif exists('g:my_session') && file is# g:my_session
-        return 'echoerr '.string(printf('%s is already the current session', fnamemodify(file, ':t')))
+        "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(session_file, ':t'))
+        return 'echoerr '.string(printf("%s doesn't exist, or it's not readable", fnamemodify(session_file, ':t')))
+    elseif exists('g:my_session') && session_file is# g:my_session
+        return 'echoerr '.string(printf('%s is already the current session', fnamemodify(session_file, ':t')))
     else
-        let [loaded_elsewhere, file] = s:session_loaded_in_other_instance(file)
+        let [loaded_elsewhere, file] = s:session_loaded_in_other_instance(session_file)
         if loaded_elsewhere
             return 'echoerr '.string(printf('%s is already loaded in another Vim instance', file))
         endif
     endif
 
-    call s:prepare_restoration(file)
+    call s:prepare_restoration(session_file)
     let options_save = s:save_options()
 
     " Before restoring a session, we need to set the previous one (for `:SLoad#`).
@@ -291,7 +291,7 @@ fu! s:load(file) abort "{{{2
     "  │  manipulate a fold, because it doesn't exist. Maybe the buffer is not
     "  │  folded yet.
     "  │
-    sil! exe 'so '.fnameescape(file)
+    sil! exe 'so '.fnameescape(session_file)
     " During the sourcing, other issues may occur. {{{
     "
     " Every custom function that we invoke in any autocmd (vimrc, other plugin)
@@ -336,7 +336,7 @@ fu! s:load(file) abort "{{{2
     call s:restore_options(options_save)
     call s:restore_help_settings_when_needed()
     call s:restore_window_local_settings()
-    call s:rename_tmux_window(file)
+    call s:rename_tmux_window(session_file)
 
     " use the global arglist in all windows
     " Why is it needed?{{{
