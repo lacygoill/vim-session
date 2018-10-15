@@ -27,15 +27,7 @@ augroup my_session
 
     "             ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
     "             │
-    "             │    I don't like sourcing the default session ┐
-    "             │    automatically; when it happens,           │
-    "             │    it's never what I wanted, and it's very   │
-    "             │    confusing, because I lose time wondering  │             ┌ If there's no last session,
-    "             │    where the loaded files come from.         │             │ don't try to restore anything.
-    "             │                                              │             │
-    au VimEnter * nested if get(g:, 'MY_LAST_SESSION', '') !~# '/default.vim$\|^$' && s:safe_to_load_session()
-                     \ |     exe 'SLoad '.get(g:, 'MY_LAST_SESSION', '')
-                     \ | endif
+    au VimEnter * nested call s:load_session_on_vimenter()
 
     " Purpose of the next 3 autocmds: {{{
     "
@@ -274,11 +266,13 @@ fu! s:load(file) abort "{{{2
         " Do NOT use `printf()` like this
         "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(file, ':t'))
         return 'echoerr '.string(printf("%s doesn't exist, or it's not readable", fnamemodify(file, ':t')))
-    elseif s:session_loaded_in_other_instance(file)[0]
-        let file = substitute(fnamemodify(s:session_loaded_in_other_instance(file)[1], ':t:r'), '%', '/', 'g')
-        return 'echoerr '.string(printf('%s is already loaded in another Vim instance', file))
     elseif exists('g:my_session') && file is# g:my_session
         return 'echoerr '.string(printf('%s is already the current session', fnamemodify(file, ':t')))
+    else
+        let [loaded_elsewhere, file] = s:session_loaded_in_other_instance(file)
+        if loaded_elsewhere
+            return 'echoerr '.string(printf('%s is already loaded in another Vim instance', file))
+        endif
     endif
 
     call s:prepare_restoration(file)
@@ -381,6 +375,35 @@ fu! s:load(file) abort "{{{2
     " Update:
     " I've commented the code because it interferes with `vim-cwd`.
     return ''
+endfu
+
+fu! s:load_session_on_vimenter() abort "{{{2
+    " Why `/default.vim` in the pattern?{{{
+    "
+    " I don't like sourcing the  default session automatically; when it happens,
+    " it's never  what I wanted,  and it's very  confusing, because I  lose time
+    " wondering where the loaded files come from.
+    "}}}
+    " Why `^$` in the pattern?{{{
+    "
+    " If there's no last session, don't try to restore anything.
+    "}}}
+    if get(g:, 'MY_LAST_SESSION', '') =~# '/default.vim$\|^$'
+        return
+    endif
+
+    if s:safe_to_load_session()
+        exe 'SLoad '.g:MY_LAST_SESSION
+    endif
+
+    " If the  session was not  restored because of  some file which  was already
+    " loaded in another Vim instance, let me know.
+    let [file_already_loaded, file] = s:session_loaded_in_other_instance(g:MY_LAST_SESSION)
+    if file_already_loaded
+        echohl WarningMsg
+        echom 'The session was not restored because '.file.' is already loaded in another Vim instance'
+        echohl NONE
+    endif
 endfu
 
 fu! s:prepare_restoration(file) abort "{{{2
@@ -548,70 +571,78 @@ fu! s:save_options() abort "{{{2
     "
     " Same thing for 'spr' and 'sb'.
     return {
-    \        'sb':  &sb,
-    \        'shm': &shm,
-    \        'spr': &spr,
-    \      }
+        \ 'sb':  &sb,
+        \ 'shm': &shm,
+        \ 'spr': &spr,
+        \ }
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
-    let buffers = filter(readfile(a:session_file), { i,v -> v =~# '^badd' })
+    let buffers = filter(readfile(a:session_file), {i,v -> v =~# '^badd'})
 
     if empty(buffers)
         return 0
     endif
 
-    " Never assign to a variable, the output of a function which operates{{{
-    " in-place on a list:  map()  filter()  reverse()  sort()  uniq()
+    " Never assign to a variable, the output of a function which operates in-place on a list:{{{
+    "
+    "         map()  filter()  reverse()  sort()  uniq()
+    "
     " Unless, the list is the output of another function (including `copy()`):
     "
-    "         let list = map([1,2,3], { i,v -> v + 1 })             ✘
+    "         let list = map([1,2,3], {i,v -> v + 1})             ✘
     "
-    "         call map([1,2,3], { i,v -> v + 1 })                   ✔
-    "         let list = map(copy([1,2,3]), { i,v -> v + 1 })       ✔
-    "         let list = map(tabpagebuflist(), { i,v -> v + 1 })    ✔
+    "         call map([1,2,3], {i,v -> v + 1})                   ✔
+    "         let list = map(copy([1,2,3]), {i,v -> v + 1})       ✔
+    "         let list = map(tabpagebuflist(), {i,v -> v + 1})    ✔
+    "}}}
+    " Why?{{{
     "
-    " Why?
     " It gives you the wrong idea that the contents of the variable is a copy
     " of the original list/dictionary.
     " Ex:
     "
     "         let list1 = [1,2,3]
-    "         let list2 = map(list1, { i,v -> v + 1 })
+    "         let list2 = map(list1, {i,v -> v + 1})
     "
     " You may think that `list2` is a copy of `list1`, and that changing `list2`
     " shouldn't affect `list1`. Wrong. `list2`  is just another reference
     " pointing to `list1`. Proof:
     "
-    "         call map(list2, { i,v -> v + 2 })
+    "         call map(list2, {i,v -> v + 2})
     "         → increments all elements of `list2`, but also all elements of `list1`
     "
     " A less confusing way of writing this code would have been:
     "
     "         let list1 = [1,2,3,4,5]
-    "         call map(list1, { i,v -> v + 1 })
+    "         call map(list1, {i,v -> v + 1})
     "
     " Without assigning the output of `map()` to a variable, we don't get the
     " idea that we have a copy of `list1`. And if we need one, we'll immediately
     " think about `copy()`:
     "
     "         let list1 = [1,2,3,4,5]
-    "         let list2 = map(copy(list1), { i,v -> v + 1 })
-"}}}
-    call map(buffers, { i,v -> matchstr(v, '^badd +\d\+ \zs.*') })
-    call map(buffers, { i,v -> fnamemodify(v, ':p') })
+    "         let list2 = map(copy(list1), {i,v -> v + 1})
+    "}}}
+    call map(buffers, {i,v -> matchstr(v, '^badd +\d\+ \zs.*')})
+    call map(buffers, {i,v -> fnamemodify(v, ':p')})
 
     let swapfiles = map(copy(buffers),
-    \                   { i,v ->  expand('~/.vim/tmp/swap/')
-    \                            .substitute(v, '/', '%', 'g')
-    \                            .'.swp' })
-    call filter(map(swapfiles, { i,v -> glob(v, 1) }), { i,v -> v isnot# '' })
-    "                                           │
-    "                                           └─ ignore 'wildignore'
+        \    {i,v ->  expand('~/.vim/tmp/swap/')
+        \            .substitute(v, '/', '%', 'g')
+        \            .'.swp'})
+    call filter(map(swapfiles, {i,v -> glob(v, 1)}), {i,v -> v isnot# ''})
+    "                                          │
+    "                                          └ ignore 'wildignore'
 
     let a_file_is_currently_loaded = !empty(swapfiles)
-    let it_is_not_in_this_session = empty(filter(map(buffers, { i,v -> buflisted(v) }), { i,v -> v !=# 0 }))
-    return [a_file_is_currently_loaded && it_is_not_in_this_session, get(swapfiles, 0, '')]
+    let it_is_not_in_this_session = empty(filter(map(buffers,
+        \ {i,v -> buflisted(v)}),
+        \ {i,v -> v !=# 0}))
+    let file = get(swapfiles, 0, '')
+    let file = fnamemodify(file, ':t:r')
+    let file = substitute(file, '%', '/', 'g')
+    return [a_file_is_currently_loaded && it_is_not_in_this_session, file]
 endfu
 
 fu! s:session_delete() abort "{{{2
