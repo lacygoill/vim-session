@@ -395,15 +395,6 @@ fu! s:load_session_on_vimenter() abort "{{{2
     if s:safe_to_load_session()
         exe 'SLoad '.g:MY_LAST_SESSION
     endif
-
-    " If the  session was not  restored because of  some file which  was already
-    " loaded in another Vim instance, let me know.
-    let [file_already_loaded, file] = s:session_loaded_in_other_instance(g:MY_LAST_SESSION)
-    if file_already_loaded
-        echohl WarningMsg
-        echom 'The session was not restored because '.file.' is already loaded in another Vim instance'
-        echohl NONE
-    endif
 endfu
 
 fu! s:prepare_restoration(file) abort "{{{2
