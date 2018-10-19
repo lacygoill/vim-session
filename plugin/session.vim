@@ -378,6 +378,11 @@ fu! s:load(session_file) abort "{{{2
 endfu
 
 fu! s:load_session_on_vimenter() abort "{{{2
+    let file = $HOME . '/.vim/session/last'
+    if filereadable(file)
+        let g:MY_LAST_SESSION = get(readfile(file), 0, '')
+    endif
+
     " Why `/default.vim` in the pattern?{{{
     "
     " I don't like sourcing the  default session automatically; when it happens,
@@ -965,16 +970,6 @@ set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
 "       EXCEPTION:
 "       Vim will  still save folding options,  because we let the  value 'folds'
 "       inside 'ssop'.
-
-" viminfo "{{{2
-
-" save and restore global variables that start with an uppercase letter,
-" and don't contain a lowercase letter.
-" Thus "KEEPTHIS and "K_L_M" are stored, but "KeepThis" and "_K_L_M" are not.
-" Nested List and Dict items may not be read back correctly, you end up with an
-" empty item.
-
-set viminfo^=!
 
 " Variables {{{1
 
