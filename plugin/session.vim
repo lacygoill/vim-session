@@ -437,14 +437,14 @@ fu! s:rename_tmux_window(file) abort "{{{2
     "                                               │ ┌─ remove extension (.vim)
     "                                               │ │
     let window_title = string(fnamemodify(a:file, ':t:r'))
-    call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
+    sil call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
 
     augroup my_tmux_window_title
         au!
         " We've just renamed the tmux window, so tmux automatically
         " disabled the 'automatic-rename' option. We'll re-enable it when
         " we quit Vim.
-        au VimLeavePre * call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
+        au VimLeavePre * sil call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
     augroup END
 endfu
 
@@ -891,10 +891,10 @@ fu! s:vim_quit_reload() abort "{{{2
     "
     " It would cause a hit-enter prompt when Vim restarts.
     "}}}
-    call system('kill -USR1 $(ps -p '.getpid().' -o ppid=)')
-    "                       ├────────────────────────────┘
-    "                       │
-    "                       └ pid of the shell parent of Vim
+    sil call system('kill -USR1 $(ps -p '.getpid().' -o ppid=)')
+    "                           ├────────────────────────────┘
+    "                           │
+    "                           └ pid of the shell parent of Vim
 
     " Note that the shell doesn't seem to process the signal immediately.
     " It doesn't restart a new Vim process, until we've quit the current one.
