@@ -64,6 +64,9 @@ augroup my_session
     " saving.
 
     au VimLeavePre * exe s:track(1)
+        \ | if get(g:, 'MY_LAST_SESSION', '') isnot# ''
+        \ |     call writefile([g:MY_LAST_SESSION], $HOME . '/.vim/session/last')
+        \ | endif
 augroup END
 
 " Commands {{{1
@@ -671,11 +674,11 @@ fu! s:session_pause() abort "{{{2
 endfu
 
 fu! s:should_delete_session() abort "{{{2
-    "                            ┌ :STrack! ∅
-    "      ┌─────────────────────┤
+    "      ┌ :STrack! ∅
+    "      ├─────────────────────┐
     return s:bang && empty(s:file) && filereadable(s:last_used_session)
     "                                 │
-    "                                 └─ a session file was used and its file is readable
+    "                                 └ a session file was used and its file is readable
 endfu
 
 fu! s:should_pause_session() abort "{{{2
@@ -810,11 +813,11 @@ fu! s:track(on_vimleavepre) abort "{{{2
                 " remove all the local arglists
                 sil! noa tabdo windo argl | %argd
             endif
-            "             ┌─ overwrite any existing file
+            "             ┌ overwrite any existing file
             "             │
             exe 'mksession! '.fnameescape(g:my_session)
 
-            "   ┌─ lines of our session file
+            "   ┌ lines of our session file
             "   │
             let body = readfile(g:my_session)
 
@@ -845,7 +848,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "     $ vim          restart Vim
             let g:MY_LAST_SESSION = g:my_session
 
-        catch /^Vim\%((\a\+)\)\?:E788/
+        catch /^Vim\%((\a\+)\)\=:E788/
             " Since Vim 8.0.677, some autocmds listening to `BufWinEnter`
             " may not work all the time. Sometimes they raise the error `E788`.
             " For us, it happens when we open the qf window (`:copen`).
