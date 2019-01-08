@@ -312,17 +312,16 @@ fu! s:load(session_file) abort "{{{2
     "
     " But, this would cause other issues:
     "
-    "       the filetype plugins would be loaded too late for markdown buffers
-    "           → 'fdm', 'fde', 'fdt' would be set too late
-    "           → in the session file, commands handling folds (e.g. `zo`) would
-    "             raise `E490: No fold found`
+    "    • the filetype plugins would be loaded too late for markdown buffers
+    "      → 'fdm', 'fde', 'fdt' would be set too late
+    "      → in the session file, commands handling folds (e.g. `zo`) would
+    "        raise `E490: No fold found`
     "
-    "       `doautoall  <nomodeline>  filetypedetect   BufReadPost`  would  only
-    "       affect the file in which the autocmd calling the current function is
-    "       installed
-    "           → no syntax highlighting everywhere else
-    "           → we would have to delay the command with a timer or maybe
-    "             a fire-once autocmd
+    "   • `doautoall <nomodeline> filetypedetect  BufReadPost` would only affect
+    "   the file in which the autocmd calling the current function is installed
+    "      → no syntax highlighting everywhere else
+    "      → we would have to delay the command with a timer or maybe
+    "        a fire-once autocmd
     "
     " Solution:
     " In an autocmd which may interfere with the restoration process, test
@@ -609,7 +608,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     " pointing to `list1`. Proof:
     "
     "         call map(list2, {i,v -> v + 2})
-    "         → increments all elements of `list2`, but also all elements of `list1`
+    "         increments all elements of `list2`, but also all elements of `list1`~
     "
     " A less confusing way of writing this code would have been:
     "
@@ -931,8 +930,8 @@ fu! s:where_do_we_save() abort "{{{2
         "     :e ~/Dropbox/wiki/par/par.md
         "     :SClose
         "     :STrack par
-        "         → the session is saved in ~/Dropbox/wiki/par/default.vim
-        "           it should be in ~/.vim/session/par.vim
+        "     the session is saved in ~/Dropbox/wiki/par/default.vim~
+        "     it should be in ~/.vim/session/par.vim~
         "
         " I think it's an argument in favor of not supporting the feature `:STrack dir/`.
         "}}}
