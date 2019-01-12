@@ -689,7 +689,7 @@ fu! s:should_pause_session() abort "{{{2
 endfu
 
 fu! s:snr() "{{{2
-    return matchstr(expand('<sfile>'), '<SNR>\d\+_')
+    return matchstr(expand('<sfile>'), '.*\zs<SNR>\d\+_')
 endfu
 
 fu! session#status() abort "{{{2
