@@ -927,10 +927,10 @@ fu! s:where_do_we_save() abort "{{{2
         "     return fnamemodify(s:file, ':p').'default.vim'
         "
         " Because:
-        "     :e ~/Dropbox/wiki/par/par.md
+        "     :e ~/wiki/par/par.md
         "     :SClose
         "     :STrack par
-        "     the session is saved in ~/Dropbox/wiki/par/default.vim~
+        "     the session is saved in ~/wiki/par/default.vim~
         "     it should be in ~/.vim/session/par.vim~
         "
         " I think it's an argument in favor of not supporting the feature `:STrack dir/`.
