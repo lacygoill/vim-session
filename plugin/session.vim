@@ -184,9 +184,9 @@ fu! s:handle_session(bang, file) abort "{{{2
     let s:file = a:file
     " This variable is used by:
     "
-    "         • s:session_pause()
-    "         • s:session_delete()
-    "         • s:where_do_we_save()
+    "         - s:session_pause()
+    "         - s:session_delete()
+    "         - s:where_do_we_save()
     "
     " It's useful to be able to delete a session which isn't currently
     " tracked, and to track the session using the session file of the last
@@ -312,12 +312,12 @@ fu! s:load(session_file) abort "{{{2
     "
     " But, this would cause other issues:
     "
-    "    • the filetype plugins would be loaded too late for markdown buffers
+    "    - the filetype plugins would be loaded too late for markdown buffers
     "      → 'fdm', 'fde', 'fdt' would be set too late
     "      → in the session file, commands handling folds (e.g. `zo`) would
     "        raise `E490: No fold found`
     "
-    "   • `doautoall <nomodeline> filetypedetect  BufReadPost` would only affect
+    "   - `doautoall <nomodeline> filetypedetect  BufReadPost` would only affect
     "   the file in which the autocmd calling the current function is installed
     "      → no syntax highlighting everywhere else
     "      → we would have to delay the command with a timer or maybe
@@ -736,8 +736,8 @@ endfu
 fu! s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
     "           ┌ `glob()` performs 2 things:
     "           │
-    "           │     • an expansion
-    "           │     • a filtering:  only the files containing `a:arglead`
+    "           │     - an expansion
+    "           │     - a filtering:  only the files containing `a:arglead`
     "           │                     in their name will be expanded
     "           │
     "           │  … so we don't need to filter the candidates
@@ -982,11 +982,11 @@ let s:SESSION_DIR = $HOME.'/.vim/session'
 
 " `:STrack` can receive 5 kind of names as arguments:
 "
-"     • nothing
-"     • a  new     file (doesn't exist yet)
-"     • an empty   file (exists, but doesn't contain anything)
-"     • a  regular file
-"     • a  session file
+"     - nothing
+"     - a  new     file (doesn't exist yet)
+"     - an empty   file (exists, but doesn't contain anything)
+"     - a  regular file
+"     - a  session file
 "
 " Also, `:STrack` can be suffixed with a bang.
 " So, we can execute 10 kinds of command in total.
@@ -1016,11 +1016,11 @@ let s:SESSION_DIR = $HOME.'/.vim/session'
 "
 "     How to write an algorithm composed of 1 main case, and several special cases?
 "
-"     • chronologically, implement main case  FIRST (special cases later)
+"     - chronologically, implement main case  FIRST (special cases later)
 "
-"     • inside the code, write special cases  BEFORE main case
+"     - inside the code, write special cases  BEFORE main case
 "
-"     • describe EXACTLY the state of the environment when a special case occurs
+"     - describe EXACTLY the state of the environment when a special case occurs
 "
 "             - aka necessary and sufficient conditions -
 "
@@ -1061,23 +1061,23 @@ let s:SESSION_DIR = $HOME.'/.vim/session'
 " In practice, it means that most of the time, you shouldn't consider the special
 " cases before implementing the main use case. For 2 reasons:
 "
-"         • the final flowchart of your algorithm will be less complex
+"         - the final flowchart of your algorithm will be less complex
 "
-"         • once you have implemented the code for the main use case, you'll have
+"         - once you have implemented the code for the main use case, you'll have
 "           a tool to discover by experimentation the special cases you didn't
 "           think about initially
 
 " Usage {{{2
 
-"     • :STrack file
-"     • :STrack /path/to/file
-"     • :STrack relative/path/to/file
+"     - :STrack file
+"     - :STrack /path/to/file
+"     - :STrack relative/path/to/file
 "
 " Invoke `:mksession` on:
 "
-"     • ~/.vim/session/file
-"     • /path/to/file
-"     • cwd/path/to/file
+"     - ~/.vim/session/file
+"     - /path/to/file
+"     - cwd/path/to/file
 "
 " … iff `file` doesn't exist.
 "
