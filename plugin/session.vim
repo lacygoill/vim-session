@@ -579,7 +579,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     let buffers = filter(readfile(a:session_file), {i,v -> v =~# '^badd'})
 
     if empty(buffers)
-        return 0
+        return [0, 0]
     endif
 
     " Never assign to a variable, the output of a function which operates in-place on a list:{{{
