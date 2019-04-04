@@ -25,9 +25,9 @@ augroup my_session
     au!
     au StdInReadPost * let s:read_stdin = 1
 
-    "             ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
-    "             │
-    au VimEnter * nested call s:load_session_on_vimenter()
+    "               ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
+    "               │
+    au VimEnter * ++nested call s:load_session_on_vimenter()
 
     " Purpose of the next 3 autocmds: {{{
     "
@@ -321,7 +321,7 @@ fu! s:load(session_file) abort "{{{2
     "   the file in which the autocmd calling the current function is installed
     "      → no syntax highlighting everywhere else
     "      → we would have to delay the command with a timer or maybe
-    "        a fire-once autocmd
+    "        a one-shot autocmd
     "
     " Solution:
     " In an autocmd which may interfere with the restoration process, test
