@@ -576,7 +576,7 @@ fu! s:save_options() abort "{{{2
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
-    let buffers = filter(readfile(a:session_file), {i,v -> v =~# '^badd'})
+    let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^badd'})
 
     if empty(buffers)
         return [0, 0]
@@ -588,11 +588,11 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     "
     " Unless, the list is the output of another function (including `copy()`):
     "
-    "         let list = map([1,2,3], {i,v -> v + 1})             ✘
+    "         let list = map([1,2,3], {_,v -> v + 1})             ✘
     "
-    "         call map([1,2,3], {i,v -> v + 1})                   ✔
-    "         let list = map(copy([1,2,3]), {i,v -> v + 1})       ✔
-    "         let list = map(tabpagebuflist(), {i,v -> v + 1})    ✔
+    "         call map([1,2,3], {_,v -> v + 1})                   ✔
+    "         let list = map(copy([1,2,3]), {_,v -> v + 1})       ✔
+    "         let list = map(tabpagebuflist(), {_,v -> v + 1})    ✔
     "}}}
     " Why?{{{
     "
@@ -601,42 +601,42 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     " Ex:
     "
     "         let list1 = [1,2,3]
-    "         let list2 = map(list1, {i,v -> v + 1})
+    "         let list2 = map(list1, {_,v -> v + 1})
     "
     " You may think that `list2` is a copy of `list1`, and that changing `list2`
     " shouldn't affect `list1`. Wrong. `list2`  is just another reference
     " pointing to `list1`. Proof:
     "
-    "         call map(list2, {i,v -> v + 2})
+    "         call map(list2, {_,v -> v + 2})
     "         increments all elements of `list2`, but also all elements of `list1`~
     "
     " A less confusing way of writing this code would have been:
     "
     "         let list1 = [1,2,3,4,5]
-    "         call map(list1, {i,v -> v + 1})
+    "         call map(list1, {_,v -> v + 1})
     "
     " Without assigning the output of `map()` to a variable, we don't get the
     " idea that we have a copy of `list1`. And if we need one, we'll immediately
     " think about `copy()`:
     "
     "         let list1 = [1,2,3,4,5]
-    "         let list2 = map(copy(list1), {i,v -> v + 1})
+    "         let list2 = map(copy(list1), {_,v -> v + 1})
     "}}}
-    call map(buffers, {i,v -> matchstr(v, '^badd +\d\+ \zs.*')})
-    call map(buffers, {i,v -> fnamemodify(v, ':p')})
+    call map(buffers, {_,v -> matchstr(v, '^badd +\d\+ \zs.*')})
+    call map(buffers, {_,v -> fnamemodify(v, ':p')})
 
     let swapfiles = map(copy(buffers),
-        \    {i,v ->  expand('~/.vim/tmp/swap/')
+        \    {_,v ->  expand('~/.vim/tmp/swap/')
         \            .substitute(v, '/', '%', 'g')
         \            .'.swp'})
-    call filter(map(swapfiles, {i,v -> glob(v, 1)}), {i,v -> v isnot# ''})
+    call filter(map(swapfiles, {_,v -> glob(v, 1)}), {_,v -> v isnot# ''})
     "                                          │
     "                                          └ ignore 'wildignore'
 
     let a_file_is_currently_loaded = !empty(swapfiles)
     let it_is_not_in_this_session = empty(filter(map(buffers,
-        \ {i,v -> buflisted(v)}),
-        \ {i,v -> v !=# 0}))
+        \ {_,v -> buflisted(v)}),
+        \ {_,v -> v !=# 0}))
     let file = get(swapfiles, 0, '')
     let file = fnamemodify(file, ':t:r')
     let file = substitute(file, '%', '/', 'g')
