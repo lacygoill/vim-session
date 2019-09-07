@@ -634,9 +634,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     "                                          └ ignore 'wildignore'
 
     let a_file_is_currently_loaded = !empty(swapfiles)
-    let it_is_not_in_this_session = empty(filter(map(buffers,
-        \ {_,v -> buflisted(v)}),
-        \ {_,v -> v !=# 0}))
+    let it_is_not_in_this_session = index(map(buffers, {_,v -> buflisted(v)}), 1) == -1
     let file = get(swapfiles, 0, '')
     let file = fnamemodify(file, ':t:r')
     let file = substitute(file, '%', '/', 'g')
@@ -880,7 +878,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
     return ''
 endfu
 
-fu! s:vim_quit_reload() abort "{{{2
+fu! s:vim_quit_and_restart() abort "{{{2
     "  ┌ there could be an error if we're in a terminal buffer (E382)
     "  │
     sil! update
@@ -944,10 +942,10 @@ fu! s:where_do_we_save() abort "{{{2
            \ :     s:SESSION_DIR.'/'.s:file.'.vim'
     endif
 endfu
-
+"}}}1
 " Mapping {{{1
 
-nno  <silent><unique>  <space>R  :<c-u>call <sid>vim_quit_reload()<cr>
+nno  <silent><unique>  <space>R  :<c-u>call <sid>vim_quit_and_restart()<cr>
 
 " Options {{{1
 " sessionoptions {{{2
@@ -978,165 +976,119 @@ set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
 let s:SESSION_DIR = $HOME.'/.vim/session'
 
 " Documentation {{{1
-" Design {{{2
-
+"
 " `:STrack` can receive 5 kind of names as arguments:
 "
-"     - nothing
-"     - a  new     file (doesn't exist yet)
-"     - an empty   file (exists, but doesn't contain anything)
-"     - a  regular file
-"     - a  session file
+"    - nothing
+"    - a new file (doesn't exist yet)
+"    - an empty file (exists, but doesn't contain anything)
+"    - a regular file
+"    - a session file
 "
 " Also, `:STrack` can be suffixed with a bang.
 " So, we can execute 10 kinds of command in total.
 " They almost all track the session.
-" This is a DESIGN DECISION (the command could behave differently).
+" This is a *design decision* (the command could behave differently).
 " We design the command so that, by default, it tracks the current session,
 " no matter the argument / presence of a bang.
 " After all, this is its main purpose.
 "
-" However, we want to add 2 functionalities:   pause and deletion.
+" However, we want to add 2 features: pause and deletion.
 " And we don't want to overwrite an important file by accident.
 " These are 3 special cases:
 "
-"         ┌──────────────────────┬─────────────────────────────────────────┐
-"         │ :STrack              │ if the current session is being tracked │
-"         │                      │ the tracking is paused                  │
-"         ├──────────────────────┼─────────────────────────────────────────┤
-"         │ :STrack!             │ if the current session is being tracked │
-"         │                      │ the tracking is paused                  │
-"         │                      │ AND the session file is deleted         │
-"         ├──────────────────────┼─────────────────────────────────────────┤
-"         │ :STrack regular_file │ fails (E189)                            │
-"         └──────────────────────┴─────────────────────────────────────────┘
-
-
-" Zen:
+"    ┌──────────────────────┬─────────────────────────────────────────┐
+"    │ :STrack              │ if the current session is being tracked │
+"    │                      │ the tracking is paused                  │
+"    ├──────────────────────┼─────────────────────────────────────────┤
+"    │ :STrack!             │ if the current session is being tracked │
+"    │                      │ the tracking is paused                  │
+"    │                      │ AND the session file is deleted         │
+"    ├──────────────────────┼─────────────────────────────────────────┤
+"    │ :STrack regular_file │ fails (E189)                            │
+"    └──────────────────────┴─────────────────────────────────────────┘
 "
-"     How to write an algorithm composed of 1 main case, and several special cases?
+" ---
 "
-"     - chronologically, implement main case  FIRST (special cases later)
-"
-"     - inside the code, write special cases  BEFORE main case
-"
-"     - describe EXACTLY the state of the environment when a special case occurs
-"
-"             - aka necessary and sufficient conditions -
-"
-"       … and let all the other states be handled by the main case
-
-
-" Zen: think about the main use case first, THEN the special cases.
-" Why?
-"
-" Here's a metaphor:
-" You have to paint a figure inside a sheet. The figure covers most of the sheet.
-" It's easier to paint the whole sheet, then remove what's in excess, rather than
-" carefully paint the inside without never crossing the boundaries.
-"
-" Other metaphor:
-" To express the number 7, it's easier to read and write:
-"
-"         ┌─ default action
-"         │
-"         10 - 1 - 1 - 1
-"              │   │   │
-"              │   │   └─ …
-"              │   └─ special case
-"              └─ special case
-"
-" … than:
-"
-"         1 + 1 + 1 + 1 + 1 + 1 + 1
-"         │   │   │   │   │   │   │
-"         │   │   │   │   │   │   └─ …
-"         │   │   │   │   │   └─ …
-"         │   │   │   │   └─ …
-"         │   │   │   └─ …
-"         │   │   └─ …
-"         │   └─ main case
-"         └─ main case
-"
-" In practice, it means that most of the time, you shouldn't consider the special
-" cases before implementing the main use case. For 2 reasons:
-"
-"         - the final flowchart of your algorithm will be less complex
-"
-"         - once you have implemented the code for the main use case, you'll have
-"           a tool to discover by experimentation the special cases you didn't
-"           think about initially
-
-" Usage {{{2
-
-"     - :STrack file
-"     - :STrack /path/to/file
-"     - :STrack relative/path/to/file
+"    - `:STrack file`
+"    - `:STrack /path/to/file`
+"    - `:STrack relative/path/to/file`
 "
 " Invoke `:mksession` on:
 "
-"     - ~/.vim/session/file
-"     - /path/to/file
-"     - cwd/path/to/file
+"    - ~/.vim/session/file
+"    - /path/to/file
+"    - cwd/path/to/file
 "
 " … iff `file` doesn't exist.
 "
 " Update the file whenever `BufWinEnter`, `TabClosed` or `VimLeavePre` is fired.
-
-
+"
+" ---
+"
 " `:STrack!` invokes `:mksession!`, which tries to overwrite the file no matter what.
-
-
-
+"
+" ---
+"
 "     :STrack
 "
 " If the tracking of a session is running:  pause it
 " If the tracking of a session is paused:   resume it
 "
-" If no session is being tracked, start tracking the current session in
-" ~/.vim/session/default.vim
-" FIXME:
-" It should be in:
+" If  no  session is  being  tracked,  start  tracking  the current  session  in
+" `~/.vim/session/default.vim`.
+"
+" TODO: It should be in:
+"
 "     `:pwd`/session.vim
-
-
+"
+" ---
+"
 "     :STrack!
 "
 " If no session is being tracked, begin the tracking.
-" If the tracking of a session is running:  pause it and remove the session
+" If the tracking of a session is running: pause it and remove the session file.
+"
+"
+" Loading a session created with `:STrack` automatically resumes updates to that
 " file.
 "
+" ---
 "
-" Loading a session created with `:STrack` automatically resumes updates
-" to that file.
-
-
 "     :SDelete!
 "     :SRename foo
 "
 " Delete current session.
 " Rename current session into `~/.vim/session/foo`.
-
-
+"
+" ---
+"
 "     :SLoad
 "
 " Load last used session. Useful after `:SClose`.
-
-
+"
+" ---
+"
 "     :SLoad#
 "     :SDelete!#
 "
 " Load / Delete the previous session.
-
-
+"
+" ---
+"
 "     :SLoad foo
 "     :SDelete! foo
 "
 " Load / Delete session `foo` stored in `~/.vim/session/foo.vim`.
-
-
+"
+" ---
+"
+"     :SLoad /path/to/session.vim
+"
+" Load session stored in `/path/to/session.vim`.
+"
 " TODO:
-" Is `:SLoad /path/to/session.vim` really useful?
+" Is it really useful?
 " If not, remove this feature.
 " I've added it because `:SLoad dir/` create  a session file in `dir/`, which is
 " not `~/.vim/session`.
@@ -1145,12 +1097,10 @@ let s:SESSION_DIR = $HOME.'/.vim/session'
 " `dir/`.
 " It would  need to  deduce from  what you've typed,  whether it's  a part  of a
 " session name, or of a path (relative/absolute) to a session file.
-
-"     :SLoad /path/to/session.vim
 "
-" Load session stored in `/path/to/session.vim`.
-
-
+" ---
+"
 "     :SClose
 "
 " Close the session:  stop the tracking of the session, and close all windows
+"
