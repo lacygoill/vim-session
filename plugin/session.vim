@@ -950,27 +950,29 @@ nno  <silent><unique>  <space>R  :<c-u>call <sid>vim_quit_and_restart()<cr>
 " Options {{{1
 " sessionoptions {{{2
 
-"         ┌─ don't save empty windows when `:mksession` is executed
-"         │
-"         │           ┌─ only save buffers which are displayed in windows
-"         │           │
-"         │           │             ┌─ don't save current directory
-"         │           │             │  when we start Vim, we want the current directory
-"         │           │             │  to be the same as the one in the shell
-"         │           │             │  otherwise it can lead to confusing situations when we use `**`
-"         │           │             │
-set ssop-=blank ssop-=buffers ssop-=curdir ssop-=options
-"                                                │
-"                                                └─ don't save options and mappings
-"                                                   why?
-"       because if we make some experiments and change some options/mappings
-"       during a session, we don't want those to be restored;
-"       only those written in files should be (vimrc, plugins, …)
+" The default value contains many undesirable items:{{{
 "
-"       EXCEPTION:
-"       Vim will  still save folding options,  because we let the  value 'folds'
-"       inside 'ssop'.
-
+"    - blank: we don't want to save empty windows when `:mksession` is executed
+"
+"    - buffers: we don't want to restore hidden and unloaded buffers
+"
+"    - curdir: we don't want to save the current directory when we start Vim,
+"      we want the current directory to be the same as the one in the shell,
+"      otherwise it can lead to confusing situations when we use `**`
+"
+"    - folds: we don't want local fold options to be saved
+"      (same reason as for 'options' item)
+"      see also: https://github.com/Konfekt/FastFold/issues/57
+"
+"    - options: we don't want to save options and mappings,
+"      because if we make some experiments and change some options/mappings
+"      during a session, we don't want those to be restored;
+"      only those written in files should be (vimrc, plugins, ...)
+"
+"      folding options are not affected by this item (for those you need the 'folds' item)
+"}}}
+set ssop=help,tabpages,winsize
+"}}}1
 " Variables {{{1
 
 let s:SESSION_DIR = $HOME.'/.vim/session'
