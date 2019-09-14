@@ -339,6 +339,7 @@ fu! s:load(session_file) abort "{{{2
     call s:restore_help_settings_when_needed()
     call s:restore_window_local_settings()
     call s:rename_tmux_window(session_file)
+    call s:open_folds()
 
     " use the global arglist in all windows
     " Why is it needed?{{{
@@ -402,6 +403,12 @@ fu! s:load_session_on_vimenter() abort "{{{2
     if s:safe_to_load_session()
         exe 'SLoad '.g:MY_LAST_SESSION
     endif
+endfu
+
+fu! s:open_folds() abort "{{{2
+    let winid = win_getid()
+    tabdo windo norm! zv
+    call win_gotoid(winid)
 endfu
 
 fu! s:prepare_restoration(file) abort "{{{2
