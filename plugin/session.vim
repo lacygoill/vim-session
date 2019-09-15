@@ -852,24 +852,35 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "     $ vim          restart Vim
             let g:MY_LAST_SESSION = g:my_session
 
-        catch /^Vim\%((\a\+)\)\=:E788/
-            " Since Vim 8.0.677, some autocmds listening to `BufWinEnter`
-            " may not work all the time. Sometimes they raise the error `E788`.
+        catch /^Vim\%((\a\+)\)\=:E\%(788\|11\):/
+            " About E788:{{{
+            "
+            " Since Vim  8.0.677, some  autocmds listening to  `BufWinEnter` may
+            " not work all the time. Sometimes they raise the error `E788`.
             " For us, it happens when we open the qf window (`:copen`).
             " Minimal vimrc to reproduce:
             "
-            "         au BufWinEnter * mksession! /tmp/session.vim
-            "         copen
+            "     au BufWinEnter * mksession! /tmp/session.vim
+            "     copen
             "
-            " Basically, `:mksession` (temporarily?) changes the current
-            " buffer when 'ft' is set to 'qf', which is now forbidden.
+            " Basically, `:mksession` (temporarily?)  changes the current buffer
+            " when 'ft' is set to 'qf', which is now forbidden.
             " For more info, search `E788` on Vim's bug tracker.
             "
             " Here, we simply ignore the error.
-            " More generally, when we want to do sth which is forbidden
-            " because of a lock, we could use `feedkeys()` and a plug mapping
-            " which would execute arbitrary code:
-            "     https://github.com/vim/vim/issues/1839#issuecomment-315489118
+            " More generally, when we want to  do sth which is forbidden because
+            " of a  lock, we  could use  `feedkeys()` and  a plug  mapping which
+            " would execute arbitrary code:
+            " https://github.com/vim/vim/issues/1839#issuecomment-315489118
+            "}}}
+            " About E11:{{{
+            "
+            " Since  Vim 8.1.2017,  running `:mksession`  from the  command-line
+            " window raises `E11`.
+            "
+            "     Error detected while processing BufWinEnter Autocommands for "*":
+            "     Vim(mksession):E11: Invalid in command-line window; <CR> executes, CTRL-C quits: mksession! /home/jean/.vim/session/C.vim
+            "}}}
         catch
             " If sth  goes wrong now  (ex: session  file not writable),  it will
             " probably go wrong next time.
