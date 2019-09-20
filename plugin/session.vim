@@ -897,6 +897,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
 endfu
 
 fu! s:vim_quit_and_restart() abort "{{{2
+    if has('gui_running') | echo 'not available in GUI' | return | endif
     "  ┌ there could be an error if we're in a terminal buffer (E382)
     "  │
     sil! update
@@ -916,6 +917,8 @@ fu! s:vim_quit_and_restart() abort "{{{2
 
     " Note that the shell doesn't seem to process the signal immediately.
     " It doesn't restart a new Vim process, until we've quit the current one.
+    " That's probably because  the shell stays in the background  as long as Vim
+    " is running.
     qa!
 endfu
 
