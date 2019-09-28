@@ -37,25 +37,25 @@ augroup my_session
     "     2. update the session file frequently, and as long as `g:my_session` exists
     "        IOW, track the session
 "}}}
-    "                ┌─ if sth goes wrong, the function returns the string:
-    "                │       'echoerr '.string(v:exception)
+    "                ┌ if sth goes wrong, the function returns the string:
+    "                │      'echoerr '.string(v:exception)
     "                │
-    "                │  we need to execute this string
+    "                │ we need to execute this string
     "                │
     au BufWinEnter * exe s:track(0)
     "  │
-    "  └─ We don't want the session to be saved only when we quit Vim,
-    "     because Vim could exit abnormally.
+    "  └ We don't want the session to be saved only when we quit Vim,
+    "    because Vim could exit abnormally.
     "
-    "     Contrary to `BufEnter`, `BufWinEnter` is NOT fired for `:split`
-    "     (without arguments), nor for `:split file`, `file` being already
-    "     displayed in a window.
+    "    Contrary to `BufEnter`, `BufWinEnter` is NOT fired for `:split`
+    "    (without arguments), nor for `:split file`, `file` being already
+    "    displayed in a window.
     "
-    "     But most of the time, Vim won't quit abnormally, and the last saved
-    "     state of our session will be performed when VimLeavePre is fired.
-    "     So, `VimLeavePre` will have the final say most of the time.
+    "    But most of the time, Vim won't quit abnormally, and the last saved
+    "    state of our session will be performed when VimLeavePre is fired.
+    "    So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * call timer_start(0, {-> execute('exe '.s:snr().'track(0)')})
+    au TabClosed * call timer_start(0, {-> execute('exe '..s:snr()..'track(0)')})
     " We also save whenever we close a tabpage, because we don't want
     " a closed tabpage to be restored while we switch back and forth between
     " 2 sessions with `:SLoad`.
@@ -65,7 +65,7 @@ augroup my_session
 
     au VimLeavePre * exe s:track(1)
         \ | if get(g:, 'MY_LAST_SESSION', '') isnot# ''
-        \ |     call writefile([g:MY_LAST_SESSION], $HOME . '/.vim/session/last')
+        \ |     call writefile([g:MY_LAST_SESSION], $HOME..'/.vim/session/last')
         \ | endif
 augroup END
 
@@ -141,7 +141,7 @@ fu! s:delete(bang, session) abort "{{{2
     else
         let session_file = empty(a:session)
                        \ ?     get(g:, 'my_session', 'MY_LAST_SESSION')
-                       \ :     fnamemodify(s:SESSION_DIR.'/'.a:session.'.vim', ':p')
+                       \ :     fnamemodify(s:SESSION_DIR..'/'..a:session..'.vim', ':p')
     endif
 
     if exists('g:my_session') && session_file is# g:my_session
@@ -164,9 +164,9 @@ fu! s:delete(bang, session) abort "{{{2
         "         return printf('echoerr "Failed to delete %s"', session_file)
         "
         " It would fail when the name of the session file contains a double quote.
-        return 'echoerr '.string('Failed to delete '.session_file)
+        return 'echoerr '..string('Failed to delete '..session_file)
     endif
-    return 'echo '.string(session_file.' has been deleted')
+    return 'echo '..string(session_file..' has been deleted')
 endfu
 
 fu! s:handle_session(bang, file) abort "{{{2
@@ -174,19 +174,19 @@ fu! s:handle_session(bang, file) abort "{{{2
     " script-local scope, to NOT have to pass them as arguments to various
     " functions:
     "
-    "         s:should_delete_session()
-    "         s:session_delete()
-    "         s:should_pause_session()
-    "         s:session_pause()
-    "         s:where_do_we_save()
+    "     s:should_delete_session()
+    "     s:session_delete()
+    "     s:should_pause_session()
+    "     s:session_pause()
+    "     s:where_do_we_save()
 
     let s:bang = a:bang
     let s:file = a:file
     " This variable is used by:
     "
-    "         - s:session_pause()
-    "         - s:session_delete()
-    "         - s:where_do_we_save()
+    "    - s:session_pause()
+    "    - s:session_delete()
+    "    - s:where_do_we_save()
     "
     " It's useful to be able to delete a session which isn't currently
     " tracked, and to track the session using the session file of the last
@@ -211,15 +211,15 @@ fu! s:handle_session(bang, file) abort "{{{2
         let s:file = s:where_do_we_save()
         if empty(s:file) | return '' | endif
 
-        "  ┌─ we only care whether a file is readable if NO bang is given
+        "  ┌ we only care whether a file is readable if NO bang is given
         "  │
-        "  │  Otherwise, we try to overwrite the file no matter what.
-        "  │  `:mksession! file` tries to overwrite `file`.
-        "  │  `:STrack!` should do the same.
+        "  │ Otherwise, we try to overwrite the file no matter what.
+        "  │ `:mksession! file` tries to overwrite `file`.
+        "  │ `:STrack!` should do the same.
         "  │
-        if !s:bang && filereadable(s:file) | return 'mksession '.fnameescape(s:file) | endif
-        "                                           └──────────────────────────────┤
-        "                                                                          │
+        if !s:bang && filereadable(s:file) | return 'mksession '..fnameescape(s:file) | endif
+        "                                           ├───────────────────────────────┘
+        "                                           │
         " We don't want to raise an error from the current function (ugly stack trace).
         " The user only knows about `:mksession`, so the error must look like
         " it's coming from the latter.
@@ -239,7 +239,7 @@ fu! s:handle_session(bang, file) abort "{{{2
         " when we begin the tracking of a new session.
         let error = s:track(0)
         if empty(error)
-            echo 'Tracking session in '.fnamemodify(s:file, ':~:.')
+            echo 'Tracking session in '..fnamemodify(s:file, ':~:.')
             call s:rename_tmux_window(s:file)
             return ''
         else
@@ -259,7 +259,7 @@ fu! s:load(session_file) abort "{{{2
            \ ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
            \ : a:session_file =~# '/'
            \ ?     fnamemodify(a:session_file, ':p')
-           \ :     s:SESSION_DIR.'/'.a:session_file.'.vim'
+           \ :     s:SESSION_DIR..'/'..a:session_file..'.vim'
 
     let session_file = resolve(session_file)
 
@@ -268,13 +268,13 @@ fu! s:load(session_file) abort "{{{2
     elseif !filereadable(session_file)
         " Do NOT use `printf()` like this
         "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(session_file, ':t'))
-        return 'echoerr '.string(printf("%s doesn't exist, or it's not readable", fnamemodify(session_file, ':t')))
+        return 'echoerr '..string(printf("%s doesn't exist, or it's not readable", fnamemodify(session_file, ':t')))
     elseif exists('g:my_session') && session_file is# g:my_session
-        return 'echoerr '.string(printf('%s is already the current session', fnamemodify(session_file, ':t')))
+        return 'echoerr '..string(printf('%s is already the current session', fnamemodify(session_file, ':t')))
     else
         let [loaded_elsewhere, file] = s:session_loaded_in_other_instance(session_file)
         if loaded_elsewhere
-            return 'echoerr '.string(printf('%s is already loaded in another Vim instance', file))
+            return 'echoerr '..string(printf('%s is already loaded in another Vim instance', file))
         endif
     endif
 
@@ -283,18 +283,18 @@ fu! s:load(session_file) abort "{{{2
 
     " Before restoring a session, we need to set the previous one (for `:SLoad#`).
     " The previous one is:
-    "         - the current tracked session, if there's one
-    "         - or the last tracked session, "
+    "    - the current tracked session, if there's one
+    "    - or the last tracked session, "
     if exists('g:my_session')
         let g:MY_PENULTIMATE_SESSION = g:my_session
     endif
 
-    "  ┌─ Sometimes, when the session contains one of our folded notes,
-    "  │  an error is raised. It seems some commands, like `zo`, fail to
-    "  │  manipulate a fold, because it doesn't exist. Maybe the buffer is not
-    "  │  folded yet.
+    "  ┌ Sometimes, when the session contains one of our folded notes,
+    "  │ an error is raised. It seems some commands, like `zo`, fail to
+    "  │ manipulate a fold, because it doesn't exist. Maybe the buffer is not
+    "  │ folded yet.
     "  │
-    sil! exe 'so '.fnameescape(session_file)
+    sil! exe 'so '..fnameescape(session_file)
     " During the sourcing, other issues may occur. {{{
     "
     " Every custom function that we invoke in any autocmd (vimrc, other plugin)
@@ -308,7 +308,7 @@ fu! s:load(session_file) abort "{{{2
     "         noa so ~/.vim/session/default.vim
     "         doautoall <nomodeline> filetypedetect BufReadPost
     "                                │
-    "                                └─ $VIMRUNTIME/filetype.vim
+    "                                └ $VIMRUNTIME/filetype.vim
     "
     " But, this would cause other issues:
     "
@@ -328,12 +328,14 @@ fu! s:load(session_file) abort "{{{2
     " whether `g:SessionLoad` exists. This variable only exists while a session
     " is being restored:
     "
-    "         if exists('g:SessionLoad')
-    "             return
-    "         endif
+    "     if exists('g:SessionLoad')
+    "         return
+    "     endif
 "}}}
 
-    let g:MY_LAST_SESSION = g:my_session
+    if exists('g:my_session')
+        let g:MY_LAST_SESSION = g:my_session
+    endif
 
     call s:restore_options(options_save)
     call s:restore_help_settings_when_needed()
@@ -381,7 +383,7 @@ fu! s:load(session_file) abort "{{{2
 endfu
 
 fu! s:load_session_on_vimenter() abort "{{{2
-    let file = $HOME . '/.vim/session/last'
+    let file = $HOME..'/.vim/session/last'
     if filereadable(file)
         let g:MY_LAST_SESSION = get(readfile(file), 0, '')
     endif
@@ -401,7 +403,7 @@ fu! s:load_session_on_vimenter() abort "{{{2
     endif
 
     if s:safe_to_load_session()
-        exe 'SLoad '.g:MY_LAST_SESSION
+        exe 'SLoad '..g:MY_LAST_SESSION
     endif
 endfu
 
@@ -421,15 +423,15 @@ fu! s:prepare_restoration(file) abort "{{{2
     " closed, before restoring a session.
     sil! tabonly | sil! only
     "  │
-    "  └─ if there's only 1 tab, `:tabonly` will display a message
+    "  └ if there's only 1 tab, `:tabonly` will display a message
 endfu
 
 fu! s:rename(new_name) abort "{{{2
     let src = g:my_session
-    let dst = expand(s:SESSION_DIR.'/'.a:new_name.'.vim')
+    let dst = expand(s:SESSION_DIR..'/'..a:new_name..'.vim')
 
     if rename(src, dst)
-        return 'echoerr '.string('Failed to rename '.src.' to '.dst)
+        return 'echoerr '..string('Failed to rename '..src..' to '..dst)
     else
         let g:my_session = dst
         call s:rename_tmux_window(dst)
@@ -442,18 +444,18 @@ fu! s:rename_tmux_window(file) abort "{{{2
         return
     endif
 
-    "                                               ┌─ remove head (/path/to/)
-    "                                               │ ┌─ remove extension (.vim)
+    "                                               ┌ remove head (/path/to/)
+    "                                               │ ┌ remove extension (.vim)
     "                                               │ │
     let window_title = string(fnamemodify(a:file, ':t:r'))
-    sil call system('tmux rename-window -t '.$TMUX_PANE.' '.window_title)
+    sil call system('tmux rename-window -t '..$TMUX_PANE..' '..window_title)
 
     augroup my_tmux_window_title
         au!
         " We've just renamed the tmux window, so tmux automatically
         " disabled the 'automatic-rename' option. We'll re-enable it when
         " we quit Vim.
-        au VimLeavePre * sil call system('tmux set-option -w -t '.$TMUX_PANE.' automatic-rename on')
+        au VimLeavePre * sil call system('tmux set-option -w -t '..$TMUX_PANE..' automatic-rename on')
     augroup END
 endfu
 
@@ -507,13 +509,13 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
 
     " I had an `E86` error once (buffer didn't exist anymore).
     if bufexists(cur_bufnr)
-        exe 'b '.cur_bufnr
+        exe 'b '..cur_bufnr
     endif
 endfu
 
 fu! s:restore_options(dict) abort "{{{2
     for [op, val] in items(a:dict)
-        exe 'let &'.op.' = '.(type(val) ==# type('') ? string(val) : val)
+        exe 'let &'..op..' = '..(type(val) ==# type('') ? string(val) : val)
     endfor
 endfu
 
@@ -539,9 +541,9 @@ fu! s:restore_window_local_settings() abort "{{{2
 
     sil! tabdo windo doautocmd BufWinEnter
     "  │ │     │
-    "  │ │     └─ iterate over windows
-    "  │ └─ iterate over tabpages
-    "  └─ an error shouldn't interrupt the process
+    "  │ │     └ iterate over windows
+    "  │ └ iterate over tabpages
+    "  └ an error shouldn't interrupt the process
 
     call win_gotoid(cur_winid)
 endfu
@@ -550,8 +552,8 @@ fu! s:safe_to_load_session() abort "{{{2
     return !argc()
       \ && !get(s:, 'read_stdin', 0)
       \ && &errorfile is# 'errors.err'
-      \ && filereadable(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))
-      \ && !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR.'/default.vim'))[0]
+      \ && filereadable(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR..'/default.vim'))
+      \ && !s:session_loaded_in_other_instance(get(g:, 'MY_LAST_SESSION', s:SESSION_DIR..'/default.vim'))[0]
 
     " It's safe to automatically load a session during Vim's startup iff:
     "
@@ -583,23 +585,21 @@ fu! s:save_options() abort "{{{2
 endfu
 
 fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
-    let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^badd'})
+    let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^\%("\s*\)\=badd '})
 
-    if empty(buffers)
-        return [0, 0]
-    endif
+    if empty(buffers) | return [0, 0] | endif
 
     " Never assign to a variable, the output of a function which operates in-place on a list:{{{
     "
-    "         map()  filter()  reverse()  sort()  uniq()
+    "     map()  filter()  reverse()  sort()  uniq()
     "
     " Unless, the list is the output of another function (including `copy()`):
     "
-    "         let list = map([1,2,3], {_,v -> v + 1})             ✘
+    "     let list = map([1,2,3], {_,v -> v + 1})             ✘
     "
-    "         call map([1,2,3], {_,v -> v + 1})                   ✔
-    "         let list = map(copy([1,2,3]), {_,v -> v + 1})       ✔
-    "         let list = map(tabpagebuflist(), {_,v -> v + 1})    ✔
+    "     call map([1,2,3], {_,v -> v + 1})                   ✔
+    "     let list = map(copy([1,2,3]), {_,v -> v + 1})       ✔
+    "     let list = map(tabpagebuflist(), {_,v -> v + 1})    ✔
     "}}}
     " Why?{{{
     "
@@ -607,35 +607,35 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     " of the original list/dictionary.
     " Ex:
     "
-    "         let list1 = [1,2,3]
-    "         let list2 = map(list1, {_,v -> v + 1})
+    "     let list1 = [1,2,3]
+    "     let list2 = map(list1, {_,v -> v + 1})
     "
     " You may think that `list2` is a copy of `list1`, and that changing `list2`
     " shouldn't affect `list1`. Wrong. `list2`  is just another reference
     " pointing to `list1`. Proof:
     "
-    "         call map(list2, {_,v -> v + 2})
-    "         increments all elements of `list2`, but also all elements of `list1`~
+    "     call map(list2, {_,v -> v + 2})
+    "     increments all elements of `list2`, but also all elements of `list1`~
     "
     " A less confusing way of writing this code would have been:
     "
-    "         let list1 = [1,2,3,4,5]
-    "         call map(list1, {_,v -> v + 1})
+    "     let list1 = [1,2,3,4,5]
+    "     call map(list1, {_,v -> v + 1})
     "
     " Without assigning the output of `map()` to a variable, we don't get the
     " idea that we have a copy of `list1`. And if we need one, we'll immediately
     " think about `copy()`:
     "
-    "         let list1 = [1,2,3,4,5]
-    "         let list2 = map(copy(list1), {_,v -> v + 1})
+    "     let list1 = [1,2,3,4,5]
+    "     let list2 = map(copy(list1), {_,v -> v + 1})
     "}}}
-    call map(buffers, {_,v -> matchstr(v, '^badd +\d\+ \zs.*')})
+    call map(buffers, {_,v -> matchstr(v, '^\%("\s*\)\=badd +\d\+ \zs.*')})
     call map(buffers, {_,v -> fnamemodify(v, ':p')})
 
     let swapfiles = map(copy(buffers),
         \    {_,v ->  expand('~/.vim/tmp/swap/')
-        \            .substitute(v, '/', '%', 'g')
-        \            .'.swp'})
+        \           ..substitute(v, '/', '%', 'g')
+        \           ..'.swp'})
     call filter(map(swapfiles, {_,v -> glob(v, 1)}), {_,v -> v isnot# ''})
     "                                          │
     "                                          └ ignore 'wildignore'
@@ -654,10 +654,10 @@ fu! s:session_delete() abort "{{{2
     " disable tracking of the session
     unlet! g:my_session
 
-    "             reduce path relative to current working directory ┐
-    "                                            don't expand `~` ┐ │
-    "                                                             │ │
-    echo 'Deleted session in '.fnamemodify(s:last_used_session, ':~:.')
+    "              reduce path relative to current working directory ┐
+    "                                             don't expand `~` ┐ │
+    "                                                              │ │
+    echo 'Deleted session in '..fnamemodify(s:last_used_session, ':~:.')
 
     " Why do we empty `v:this_session`?
     "
@@ -670,7 +670,7 @@ fu! s:session_delete() abort "{{{2
 endfu
 
 fu! s:session_pause() abort "{{{2
-    echo 'Pausing session in '.fnamemodify(s:last_used_session, ':~:.')
+    echo 'Pausing session in '..fnamemodify(s:last_used_session, ':~:.')
     let g:MY_LAST_SESSION = g:my_session
     unlet g:my_session
     " don't empty `v:this_session`: we need it if we resume later
@@ -686,9 +686,9 @@ fu! s:should_delete_session() abort "{{{2
 endfu
 
 fu! s:should_pause_session() abort "{{{2
-    "      ┌─ no bang
-    "      │          ┌─ :STrack ∅
-    "      │          │                ┌─ the current session is being tracked
+    "      ┌ no bang
+    "      │          ┌ :STrack ∅
+    "      │          │                ┌ the current session is being tracked
     "      │          │                │
     return !s:bang && empty(s:file) && exists('g:my_session')
 endfu
@@ -701,23 +701,23 @@ fu! session#status() abort "{{{2
 
     " From the perspective of sessions, the environment can be in 3 states:
     "
-    "         - no session has been loaded / saved
+    "    - no session has been loaded / saved
     "
-    "         - a session has been loaded / saved, but is NOT tracked by our plugin
+    "    - a session has been loaded / saved, but is NOT tracked by our plugin
     "
-    "         - a session has been loaded / saved, and IS being tracked by our plugin
+    "    - a session has been loaded / saved, and IS being tracked by our plugin
 
     " We create the variable `state` whose value, 0, 1 or 2, stands for
     " the state of the environment.
     "
-    "           ┌─ a session has been loaded/saved
-    "           │                        ┌─ it's tracked by our plugin
+    "           ┌ a session has been loaded/saved
+    "           │                        ┌ it's tracked by our plugin
     "           │                        │
     let state = !empty(v:this_session) + exists('g:my_session')
     "                  │
-    "                  └─ stores the path to the last file which has been used
-    "                     to load/save a session;
-    "                     if no session has been saved/loaded, it's empty
+    "                  └ stores the path to the last file which has been used
+    "                    to load/save a session;
+    "                    if no session has been saved/loaded, it's empty
     "
     " We can use this sum to express the state because there's no ambiguity.
     " Only 1 state can produce 0.
@@ -746,7 +746,7 @@ fu! s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
     "           │                     in their name will be expanded
     "           │
     "           │  … so we don't need to filter the candidates
-    let files = glob(s:SESSION_DIR.'/*'.a:arglead.'*.vim')
+    let files = glob(s:SESSION_DIR..'/*'..a:arglead..'*.vim')
     " simplify the names of the session files:
     " keep only the basename (no path, no extension)
     return substitute(files, '[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
@@ -819,7 +819,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
             endif
             "             ┌ overwrite any existing file
             "             │
-            exe 'mksession! '.fnameescape(g:my_session)
+            exe 'mksession! '..fnameescape(g:my_session)
 
             "   ┌ lines of our session file
             "   │
@@ -841,6 +841,32 @@ fu! s:track(on_vimleavepre) abort "{{{2
             " session was systematically loaded.
             "}}}
             call insert(body, 'let g:my_session = v:this_session', -3)
+            " Why commenting the `:badd` commands?{{{
+            "
+            " It could prevent the window-local  options from being applied when
+            " the buffers are displayed in a different window.
+            "
+            " MWE:
+            "
+            "     $ cat <<'EOF' >/tmp/file
+            "     fold one title [[[1
+            "
+            "     some text
+            "
+            "     fold two title [[[1
+            "
+            "     some other text
+            "     EOF
+            "
+            "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | badd /tmp/file | b file' /tmp/file
+            "
+            " Notice how the file is not folded in the top window.
+            "
+            " Now, if you remove `:badd`, both windows are correctly folded:
+            "
+            "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | b file' /tmp/file
+            "}}}
+            call map(body, {_,v -> substitute(v, '\m\C^badd ', '" badd ', '')})
             call writefile(body, g:my_session)
 
             " Let Vim know that this session is the last used.
@@ -890,7 +916,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
             " update all status lines, to remove the `[∞]` item
             redrawstatus!
 
-            return 'echoerr '.string(v:exception)
+            return 'echoerr '..string(v:exception)
         endtry
     endif
     return ''
@@ -910,8 +936,8 @@ fu! s:vim_quit_and_restart() abort "{{{2
     "
     " It would cause a hit-enter prompt when Vim restarts.
     "}}}
-    sil call system('kill -USR1 $(ps -p '.getpid().' -o ppid=)')
-    "                           ├────────────────────────────┘
+    sil call system('kill -USR1 $(ps -p '..getpid()..' -o ppid=)')
+    "                           ├──────────────────────────────┘
     "                           │
     "                           └ pid of the shell parent of Vim
 
@@ -929,7 +955,7 @@ fu! s:where_do_we_save() abort "{{{2
             if !isdirectory(s:SESSION_DIR)
                 call mkdir(s:SESSION_DIR)
             endif
-            return s:SESSION_DIR.'/default.vim'
+            return s:SESSION_DIR..'/default.vim'
         else
             return s:last_used_session
         endif
@@ -960,7 +986,7 @@ fu! s:where_do_we_save() abort "{{{2
     else
         return s:file =~# '/'
            \ ?     fnamemodify(s:file, ':p')
-           \ :     s:SESSION_DIR.'/'.s:file.'.vim'
+           \ :     s:SESSION_DIR..'/'..s:file..'.vim'
     endif
 endfu
 "}}}1
@@ -996,7 +1022,7 @@ set ssop=help,tabpages,winsize
 "}}}1
 " Variables {{{1
 
-let s:SESSION_DIR = $HOME.'/.vim/session'
+let s:SESSION_DIR = $HOME..'/.vim/session'
 
 " Documentation {{{1
 "
