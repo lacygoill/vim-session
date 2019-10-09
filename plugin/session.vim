@@ -515,7 +515,7 @@ endfu
 
 fu! s:restore_options(dict) abort "{{{2
     for [op, val] in items(a:dict)
-        exe 'let &'..op..' = '..(type(val) ==# type('') ? string(val) : val)
+        exe 'let &'..op..' = '..(type(val) == type('') ? string(val) : val)
     endfor
 endfu
 
@@ -745,7 +745,7 @@ fu! s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
     "           │     - a filtering:  only the files containing `a:arglead`
     "           │                     in their name will be expanded
     "           │
-    "           │  … so we don't need to filter the candidates
+    "           │  ... so we don't need to filter the matches
     let files = glob(s:SESSION_DIR..'/*'..a:arglead..'*.vim')
     " simplify the names of the session files:
     " keep only the basename (no path, no extension)
