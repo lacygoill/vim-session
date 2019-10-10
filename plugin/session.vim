@@ -31,11 +31,11 @@ augroup my_session
 
     " Purpose of the next 3 autocmds: {{{
     "
-    "     1. automatically save the current session, as soon as `g:my_session`
-    "        pops into existence
+    "    1. automatically save the current session, as soon as `g:my_session`
+    "       pops into existence
     "
-    "     2. update the session file frequently, and as long as `g:my_session` exists
-    "        IOW, track the session
+    "    2. update the session file frequently, and as long as `g:my_session` exists
+    "       IOW, track the session
 "}}}
     "                ┌ if sth goes wrong, the function returns the string:
     "                │      'echoerr '.string(v:exception)
@@ -55,7 +55,7 @@ augroup my_session
     "    state of our session will be performed when VimLeavePre is fired.
     "    So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * call timer_start(0, {-> execute('exe '..s:snr()..'track(0)')})
+    au TabClosed * call timer_start(0, {_ -> execute('exe '..s:snr()..'track(0)')})
     " We also save whenever we close a tabpage, because we don't want
     " a closed tabpage to be restored while we switch back and forth between
     " 2 sessions with `:SLoad`.
@@ -92,7 +92,7 @@ augroup END
 " When an error may occur, we capture it and convert it into a string:
 "
 "     try
-"         …
+"         ...
 "     catch
 "         return 'echoerr '.string(v:exception)
 "     endtry
@@ -763,8 +763,8 @@ fu! s:track(on_vimleavepre) abort "{{{2
     " In the session file, it adds the line:
     "         let g:my_session = v:this_session
     "
-    " … so that the next time we load the session, the plugin knows that it must
-    " track it automatically.
+    " ... so that  the next time we  load the session, the plugin  knows that it
+    " must track it automatically.
 
     if exists('g:SessionLoad')
         " `g:SessionLoad` exists temporarily while a session is loading.
@@ -826,13 +826,14 @@ fu! s:track(on_vimleavepre) abort "{{{2
             let body = readfile(g:my_session)
 
             " add the Ex command:
-            "         let g:my_session = v:this_session
             "
-            " … just before the last 3 commands:
+            "     let g:my_session = v:this_session
             "
-            "         doautoall SessionLoadPost
-            "         unlet SessionLoad
-            "         vim: set ft=vim : (modeline)
+            " ... just before the last 3 commands:
+            "
+            "     doautoall SessionLoadPost
+            "     unlet SessionLoad
+            "     vim: set ft=vim : (modeline)
             call insert(body, 'let g:my_session = v:this_session', -3)
             " Why twice?{{{
             "
@@ -1069,7 +1070,7 @@ let s:SESSION_DIR = $HOME..'/.vim/session'
 "    - /path/to/file
 "    - cwd/path/to/file
 "
-" … iff `file` doesn't exist.
+" ... iff `file` doesn't exist.
 "
 " Update the file whenever `BufWinEnter`, `TabClosed` or `VimLeavePre` is fired.
 "
