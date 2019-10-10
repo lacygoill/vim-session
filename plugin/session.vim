@@ -289,6 +289,17 @@ fu! s:load(session_file) abort "{{{2
         let g:MY_PENULTIMATE_SESSION = g:my_session
     endif
 
+    " Why?{{{
+    "
+    " I had hard-to-debug issues in the  past, because for some reason this line
+    " was missing from some session files:
+    "
+    "     let g:my_session = v:this_session
+    "
+    " Let's make sure it never happens again.
+    "}}}
+    call s:tweak_session_file(session_file)
+
     "  ┌ Sometimes, when the session contains one of our folded notes,
     "  │ an error is raised. It seems some commands, like `zo`, fail to
     "  │ manipulate a fold, because it doesn't exist. Maybe the buffer is not
@@ -821,54 +832,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
             "             │
             exe 'mksession! '..fnameescape(g:my_session)
 
-            "   ┌ lines of our session file
-            "   │
-            let body = readfile(g:my_session)
-
-            " add the Ex command:
-            "
-            "     let g:my_session = v:this_session
-            "
-            " ... just before the last 3 commands:
-            "
-            "     doautoall SessionLoadPost
-            "     unlet SessionLoad
-            "     vim: set ft=vim : (modeline)
-            call insert(body, 'let g:my_session = v:this_session', -3)
-            " Why twice?{{{
-            "
-            " Once, I had an issue where this line was missing in a session file.
-            " This  lead to  an issue  where, when  I restarted  Vim, the  wrong
-            " session was systematically loaded.
-            "}}}
-            call insert(body, 'let g:my_session = v:this_session', -3)
-            " Why commenting the `:badd` commands?{{{
-            "
-            " It could prevent the window-local  options from being applied when
-            " the buffers are displayed in a different window.
-            "
-            " MWE:
-            "
-            "     $ cat <<'EOF' >/tmp/file
-            "     fold one title [[[1
-            "
-            "     some text
-            "
-            "     fold two title [[[1
-            "
-            "     some other text
-            "     EOF
-            "
-            "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | badd /tmp/file | b file' /tmp/file
-            "
-            " Notice how the file is not folded in the top window.
-            "
-            " Now, if you remove `:badd`, both windows are correctly folded:
-            "
-            "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | b file' /tmp/file
-            "}}}
-            call map(body, {_,v -> substitute(v, '\m\C^badd ', '" badd ', '')})
-            call writefile(body, g:my_session)
+            call s:tweak_session_file(g:my_session)
 
             " Let Vim know that this session is the last used.
             " Useful when we do this:
@@ -921,6 +885,57 @@ fu! s:track(on_vimleavepre) abort "{{{2
         endtry
     endif
     return ''
+endfu
+
+fu! s:tweak_session_file(file) abort "{{{2
+    "   ┌ lines of our session file
+    "   │
+    let body = readfile(a:file)
+
+    " add the Ex command:
+    "
+    "     let g:my_session = v:this_session
+    "
+    " ... just before the last 3 commands:
+    "
+    "     doautoall SessionLoadPost
+    "     unlet SessionLoad
+    "     vim: set ft=vim : (modeline)
+    call insert(body, 'let g:my_session = v:this_session', -3)
+    " Why twice?{{{
+    "
+    " Once, I had an issue where this line was missing in a session file.
+    " This  lead to  an issue  where, when  I restarted  Vim, the  wrong
+    " session was systematically loaded.
+    "}}}
+    call insert(body, 'let g:my_session = v:this_session', -3)
+    " Why commenting the `:badd` commands?{{{
+    "
+    " It could prevent the window-local  options from being applied when
+    " the buffers are displayed in a different window.
+    "
+    " MWE:
+    "
+    "     $ cat <<'EOF' >/tmp/file
+    "     fold one title [[[1
+    "
+    "     some text
+    "
+    "     fold two title [[[1
+    "
+    "     some other text
+    "     EOF
+    "
+    "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | badd /tmp/file | b file' /tmp/file
+    "
+    " Notice how the file is not folded in the top window.
+    "
+    " Now, if you remove `:badd`, both windows are correctly folded:
+    "
+    "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | b file' /tmp/file
+    "}}}
+    call map(body, {_,v -> substitute(v, '\m\C^badd ', '" badd ', '')})
+    call writefile(body, a:file)
 endfu
 
 fu! s:vim_quit_and_restart() abort "{{{2
