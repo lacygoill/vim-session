@@ -108,15 +108,15 @@ augroup END
 " command to disappear if no error occurs during its execution.
 " For `:SLoad` and `:STrack`, we use `:exe` because there will always be
 " a message to display; even when everything works fine.
-com! -bar                -complete=custom,s:suggest_sessions SClose   exe s:close()
-com! -bar -bang -nargs=? -complete=custom,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
-com! -bar       -nargs=1 -complete=custom,s:suggest_sessions SRename  exe s:rename(<q-args>)
+com -bar                -complete=custom,s:suggest_sessions SClose   exe s:close()
+com -bar -bang -nargs=? -complete=custom,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
+com -bar       -nargs=1 -complete=custom,s:suggest_sessions SRename  exe s:rename(<q-args>)
 
-com! -bar       -nargs=? -complete=custom,s:suggest_sessions SLoad    exe s:load(<q-args>)
-com! -bar -bang -nargs=? -complete=file                      STrack   exe s:handle_session(<bang>0, <q-args>)
+com -bar       -nargs=? -complete=custom,s:suggest_sessions SLoad    exe s:load(<q-args>)
+com -bar -bang -nargs=? -complete=file                      STrack   exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
-fu! s:close() abort "{{{2
+fu s:close() abort "{{{2
     if !exists('g:my_session')
         return ''
     endif
@@ -127,7 +127,7 @@ fu! s:close() abort "{{{2
     return ''
 endfu
 
-fu! s:delete(bang, session) abort "{{{2
+fu s:delete(bang, session) abort "{{{2
     if !a:bang
         return 'echoerr "Add a bang"'
     endif
@@ -169,7 +169,7 @@ fu! s:delete(bang, session) abort "{{{2
     return 'echo '..string(session_file..' has been deleted')
 endfu
 
-fu! s:handle_session(bang, file) abort "{{{2
+fu s:handle_session(bang, file) abort "{{{2
     " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
     " script-local scope, to NOT have to pass them as arguments to various
     " functions:
@@ -252,7 +252,7 @@ fu! s:handle_session(bang, file) abort "{{{2
     endtry
 endfu
 
-fu! s:load(session_file) abort "{{{2
+fu s:load(session_file) abort "{{{2
     let session_file = empty(a:session_file)
            \ ?     get(g:, 'MY_LAST_SESSION', '')
            \ : a:session_file is# '#'
@@ -393,7 +393,7 @@ fu! s:load(session_file) abort "{{{2
     return ''
 endfu
 
-fu! s:load_session_on_vimenter() abort "{{{2
+fu s:load_session_on_vimenter() abort "{{{2
     let file = $HOME..'/.vim/session/last'
     if filereadable(file)
         let g:MY_LAST_SESSION = get(readfile(file), 0, '')
@@ -418,13 +418,13 @@ fu! s:load_session_on_vimenter() abort "{{{2
     endif
 endfu
 
-fu! s:open_folds() abort "{{{2
+fu s:open_folds() abort "{{{2
     let winid = win_getid()
     tabdo windo norm! zv
     call win_gotoid(winid)
 endfu
 
-fu! s:prepare_restoration(file) abort "{{{2
+fu s:prepare_restoration(file) abort "{{{2
     " Update current session file, before loading another one.
     exe s:track(0)
 
@@ -437,7 +437,7 @@ fu! s:prepare_restoration(file) abort "{{{2
     "  └ if there's only 1 tab, `:tabonly` will display a message
 endfu
 
-fu! s:rename(new_name) abort "{{{2
+fu s:rename(new_name) abort "{{{2
     let src = g:my_session
     let dst = expand(s:SESSION_DIR..'/'..a:new_name..'.vim')
 
@@ -450,7 +450,7 @@ fu! s:rename(new_name) abort "{{{2
     return ''
 endfu
 
-fu! s:rename_tmux_window(file) abort "{{{2
+fu s:rename_tmux_window(file) abort "{{{2
     if !exists('$TMUX')
         return
     endif
@@ -470,7 +470,7 @@ fu! s:rename_tmux_window(file) abort "{{{2
     augroup END
 endfu
 
-fu! s:restore_help_settings() abort "{{{2
+fu s:restore_help_settings() abort "{{{2
     " For some reason, Vim doesn't restore some settings in a help buffer,
     " including the syntax highlighting.
 
@@ -508,7 +508,7 @@ fu! s:restore_help_settings() abort "{{{2
     " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
 endfu
 
-fu! s:restore_help_settings_when_needed() abort "{{{2
+fu s:restore_help_settings_when_needed() abort "{{{2
     " `:bufdo` is executed in the context of the last window of the last tabpage.
     " It could replace its buffer with another buffer (the one with the biggest number).
     " We don't want that, so we save the current buffer number, to restore it later.
@@ -524,13 +524,13 @@ fu! s:restore_help_settings_when_needed() abort "{{{2
     endif
 endfu
 
-fu! s:restore_options(dict) abort "{{{2
+fu s:restore_options(dict) abort "{{{2
     for [op, val] in items(a:dict)
         exe 'let &'..op..' = '..(type(val) == type('') ? string(val) : val)
     endfor
 endfu
 
-fu! s:restore_window_local_settings() abort "{{{2
+fu s:restore_window_local_settings() abort "{{{2
     let cur_winid = win_getid()
 
     " We fire `BufWinEnter` in all windows to apply window-local options in
@@ -559,7 +559,7 @@ fu! s:restore_window_local_settings() abort "{{{2
     call win_gotoid(cur_winid)
 endfu
 
-fu! s:safe_to_load_session() abort "{{{2
+fu s:safe_to_load_session() abort "{{{2
     return !argc()
       \ && !get(s:, 'read_stdin', 0)
       \ && &errorfile is# 'errors.err'
@@ -582,7 +582,7 @@ fu! s:safe_to_load_session() abort "{{{2
     "     Otherwise, loading it in a 2nd instance would raise the error E325.
 endfu
 
-fu! s:save_options() abort "{{{2
+fu s:save_options() abort "{{{2
     " Even  though we  don't include  'options'  inside 'ssop',  a session  file
     " manipulates the value of 'shm'. We  save and restore this option manually,
     " to be sure it won't be changed.
@@ -595,7 +595,7 @@ fu! s:save_options() abort "{{{2
         \ }
 endfu
 
-fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
+fu s:session_loaded_in_other_instance(session_file) abort "{{{2
     let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^\%("\s*\)\=badd '})
 
     if empty(buffers) | return [0, 0] | endif
@@ -659,7 +659,7 @@ fu! s:session_loaded_in_other_instance(session_file) abort "{{{2
     return [a_file_is_currently_loaded && it_is_not_in_this_session, file]
 endfu
 
-fu! s:session_delete() abort "{{{2
+fu s:session_delete() abort "{{{2
     call delete(s:last_used_session)
 
     " disable tracking of the session
@@ -680,7 +680,7 @@ fu! s:session_delete() abort "{{{2
     return ''
 endfu
 
-fu! s:session_pause() abort "{{{2
+fu s:session_pause() abort "{{{2
     echo 'Pausing session in '..fnamemodify(s:last_used_session, ':~:.')
     let g:MY_LAST_SESSION = g:my_session
     unlet g:my_session
@@ -688,7 +688,7 @@ fu! s:session_pause() abort "{{{2
     return ''
 endfu
 
-fu! s:should_delete_session() abort "{{{2
+fu s:should_delete_session() abort "{{{2
     "      ┌ :STrack! ∅
     "      ├─────────────────────┐
     return s:bang && empty(s:file) && filereadable(s:last_used_session)
@@ -696,7 +696,7 @@ fu! s:should_delete_session() abort "{{{2
     "                                 └ a session file was used and its file is readable
 endfu
 
-fu! s:should_pause_session() abort "{{{2
+fu s:should_pause_session() abort "{{{2
     "      ┌ no bang
     "      │          ┌ :STrack ∅
     "      │          │                ┌ the current session is being tracked
@@ -704,11 +704,11 @@ fu! s:should_pause_session() abort "{{{2
     return !s:bang && empty(s:file) && exists('g:my_session')
 endfu
 
-fu! s:snr() "{{{2
+fu s:snr() "{{{2
     return matchstr(expand('<sfile>'), '.*\zs<SNR>\d\+_')
 endfu
 
-fu! session#status() abort "{{{2
+fu session#status() abort "{{{2
 
     " From the perspective of sessions, the environment can be in 3 states:
     "
@@ -749,7 +749,7 @@ fu! session#status() abort "{{{2
     return ['', '[S]', '[∞]'][state]
 endfu
 
-fu! s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
+fu s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
     "           ┌ `glob()` performs 2 things:
     "           │
     "           │     - an expansion
@@ -769,7 +769,7 @@ fu! s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
     "                               `.` stands for any character INCLUDING an end-of-line
 endfu
 
-fu! s:track(on_vimleavepre) abort "{{{2
+fu s:track(on_vimleavepre) abort "{{{2
     " This function saves the current session, iff `g:my_session` exists.
     " In the session file, it adds the line:
     "         let g:my_session = v:this_session
@@ -887,7 +887,7 @@ fu! s:track(on_vimleavepre) abort "{{{2
     return ''
 endfu
 
-fu! s:tweak_session_file(file) abort "{{{2
+fu s:tweak_session_file(file) abort "{{{2
     "   ┌ lines of our session file
     "   │
     let body = readfile(a:file)
@@ -938,7 +938,7 @@ fu! s:tweak_session_file(file) abort "{{{2
     call writefile(body, a:file)
 endfu
 
-fu! s:vim_quit_and_restart() abort "{{{2
+fu s:vim_quit_and_restart() abort "{{{2
     if has('gui_running') | echo 'not available in GUI' | return | endif
     "  ┌ there could be an error if we're in a terminal buffer (E382)
     "  │
@@ -964,7 +964,7 @@ fu! s:vim_quit_and_restart() abort "{{{2
     qa!
 endfu
 
-fu! s:where_do_we_save() abort "{{{2
+fu s:where_do_we_save() abort "{{{2
     " :STrack ∅
     if empty(s:file)
         if empty(s:last_used_session)
@@ -1038,7 +1038,7 @@ set ssop=help,tabpages,winsize
 "}}}1
 " Variables {{{1
 
-let s:SESSION_DIR = $HOME..'/.vim/session'
+const s:SESSION_DIR = $HOME..'/.vim/session'
 
 " Documentation {{{1
 "
