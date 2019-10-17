@@ -394,6 +394,10 @@ fu s:load(session_file) abort "{{{2
 endfu
 
 fu s:load_session_on_vimenter() abort "{{{2
+    " Don't source the last session when we run `$ vim`; it's not always what we want.
+    " Source it only when we run `$ nv`.
+    if v:servername is# '' | return | endif
+
     let file = $HOME..'/.vim/session/last'
     if filereadable(file)
         let g:MY_LAST_SESSION = get(readfile(file), 0, '')
@@ -749,7 +753,7 @@ fu session#status() abort "{{{2
     return ['', '[S]', '[∞]'][state]
 endfu
 
-fu s:suggest_sessions(arglead, _cmdline, _pos) abort "{{{2
+fu s:suggest_sessions(arglead, _l, _p) abort "{{{2
     "           ┌ `glob()` performs 2 things:
     "           │
     "           │     - an expansion
@@ -952,10 +956,8 @@ fu s:vim_quit_and_restart() abort "{{{2
     "
     " It would cause a hit-enter prompt when Vim restarts.
     "}}}
-    sil call system('kill -USR1 $(ps -p '..getpid()..' -o ppid=)')
-    "                           ├──────────────────────────────┘
-    "                           │
-    "                           └ pid of the shell parent of Vim
+    let shell_parent_pid = '$(ps -p '..getpid()..' -o ppid=)'
+    sil call system('kill -USR1 '..shell_parent_pid)
 
     " Note that the shell doesn't seem to process the signal immediately.
     " It doesn't restart a new Vim process, until we've quit the current one.
@@ -1008,7 +1010,7 @@ endfu
 "}}}1
 " Mapping {{{1
 
-nno  <silent><unique>  <space>R  :<c-u>call <sid>vim_quit_and_restart()<cr>
+nno <silent><unique> <space>R :<c-u>call <sid>vim_quit_and_restart()<cr>
 
 " Options {{{1
 " sessionoptions {{{2
