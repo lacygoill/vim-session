@@ -139,7 +139,7 @@ fu s:delete(bang, session) abort "{{{2
             return 'echoerr "No alternate session to delete"'
         endif
     else
-        let session_file = empty(a:session)
+        let session_file = a:session is# ''
                        \ ?     get(g:, 'my_session', 'MY_LAST_SESSION')
                        \ :     fnamemodify(s:SESSION_DIR..'/'..a:session..'.vim', ':p')
     endif
@@ -160,29 +160,29 @@ fu s:delete(bang, session) abort "{{{2
 
     " Delete the session file, and if sth goes wrong report what happened.
     if delete(session_file)
-        " Do NOT use `printf()`:
-        "         return printf('echoerr "Failed to delete %s"', session_file)
+        " Do NOT use `printf()`:{{{
+        "
+        "     return printf('echoerr "Failed to delete %s"', session_file)
         "
         " It would fail when the name of the session file contains a double quote.
+        "}}}
         return 'echoerr '..string('Failed to delete '..session_file)
     endif
     return 'echo '..string(session_file..' has been deleted')
 endfu
 
 fu s:handle_session(bang, file) abort "{{{2
-    " We  move  `a:bang`, `a:file`  ,  and  put `s:last_used_session`  into  the
-    " script-local  scope, to  NOT have  to pass  them as  arguments to  various
-    " functions:
+    " We use `s:` to NOT have to pass them as arguments to various functions:{{{
     "
     "     s:should_delete_session()
     "     s:session_delete()
     "     s:should_pause_session()
     "     s:session_pause()
     "     s:where_do_we_save()
-
+    "}}}
     let s:bang = a:bang
     let s:file = a:file
-    " This variable is used by:
+    " `s:last_used_session` is used by:{{{
     "
     "    - s:session_pause()
     "    - s:session_delete()
@@ -190,17 +190,17 @@ fu s:handle_session(bang, file) abort "{{{2
     "
     " It's useful to be able to  delete a session which isn't currently tracked,
     " and to track the session using the session file of the last session used.
+    "}}}
     let s:last_used_session = get(g:, 'my_session', v:this_session)
 
     try
-        " `:STrack` should  behave mostly like `:mksession`  with the additional
-        " benefit of updating the session file.
+        " `:STrack` should behave mostly like `:mksession` with the additional benefit of updating the session file.{{{
         "
-        " However, we want 2 additional features:  pause and deletion.
+        " However, we want 2 additional features:  pause/resume and deletion.
         "
-        "     :STrack     pause
+        "     :STrack     pause/resume
         "     :STrack!    delete
-
+        "}}}
         if s:should_pause_session()
             return s:session_pause()
         elseif s:should_delete_session()
@@ -208,36 +208,29 @@ fu s:handle_session(bang, file) abort "{{{2
         endif
 
         let s:file = s:where_do_we_save()
-        if empty(s:file) | return '' | endif
+        if s:file is# '' | return '' | endif
 
-        "  ┌ we only care whether a file is readable if NO bang is given
-        "  │
-        "  │ Otherwise, we try to overwrite the file no matter what.
-        "  │ `:mksession! file` tries to overwrite `file`.
-        "  │ `:STrack!` should do the same.
-        "  │
-        if !s:bang && filereadable(s:file) | return 'mksession '..fnameescape(s:file) | endif
-        "                                           ├───────────────────────────────┘
-        "                                           │
-        " We don't want to raise an error from the current function (ugly stack trace).
-        " The user  only knows about `:mksession`,  so the error must  look like
-        " it's coming from the latter.
-        " We  just return  'mksession file'. It  will be  executed outside  this
-        " function, fail, and produce the “easy-to-read“ error message:
+        " Don't overwrite an existing session file by accident.{{{
         "
-        "         E189: "file" exists (add ! to override)
+        " Unless a bang is given.
+        " Or unless `:STrack` was run without argument (in which case we want to
+        " resume the tracking of a paused session).
+        "}}}
+        if !s:bang && a:file isnot# '' | return 'mksession '..fnameescape(s:file) | endif
 
         let g:my_session = s:file
         " let `track()` know that it must save & track the current session
 
-        " Why not  simply return `s:track()`,  and move the `echo`  statement in
-        " the latter?
+        " Why not simply return `s:track()`, and move the `echo` statement in the latter?{{{
+        "
         " `s:track()`  is   frequently  called  by  the   autocmd  listening  to
-        " BufWinEnter. We don't want the message to be echo'ed all the time.
+        " `BufWinEnter`; we don't want the message to be echo'ed all the time.
+        "
         " The message, and the renaming of the tmux pane, should only occur when
         " we begin the tracking of a new session.
+        "}}}
         let error = s:track(0)
-        if empty(error)
+        if error is# ''
             echo 'Tracking session in '..fnamemodify(s:file, ':~:.')
             call s:rename_tmux_window(s:file)
             return ''
@@ -252,7 +245,7 @@ fu s:handle_session(bang, file) abort "{{{2
 endfu
 
 fu s:load(session_file) abort "{{{2
-    let session_file = empty(a:session_file)
+    let session_file = a:session_file is# ''
            \ ?     get(g:, 'MY_LAST_SESSION', '')
            \ : a:session_file is# '#'
            \ ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
@@ -262,7 +255,7 @@ fu s:load(session_file) abort "{{{2
 
     let session_file = resolve(session_file)
 
-    if empty(session_file)
+    if session_file is# ''
         return 'echoerr "No session to load"'
     elseif !filereadable(session_file)
         " Do NOT use `printf()` like this
@@ -601,7 +594,7 @@ endfu
 fu s:session_loaded_in_other_instance(session_file) abort "{{{2
     let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^\%("\s*\)\=badd '})
 
-    if empty(buffers) | return [0, 0] | endif
+    if buffers ==# [] | return [0, 0] | endif
 
     " Never assign to a variable, the output of a function which operates in-place on a list:{{{
     "
@@ -654,7 +647,7 @@ fu s:session_loaded_in_other_instance(session_file) abort "{{{2
     "                                          │
     "                                          └ ignore 'wildignore'
 
-    let a_file_is_currently_loaded = !empty(swapfiles)
+    let a_file_is_currently_loaded = swapfiles !=# []
     let it_is_not_in_this_session = index(map(buffers, {_,v -> buflisted(v)}), 1) == -1
     let file = get(swapfiles, 0, '')
     let file = fnamemodify(file, ':t:r')
@@ -694,7 +687,7 @@ endfu
 fu s:should_delete_session() abort "{{{2
     "      ┌ :STrack! ∅
     "      ├─────────────────────┐
-    return s:bang && empty(s:file) && filereadable(s:last_used_session)
+    return s:bang && s:file is# '' && filereadable(s:last_used_session)
     "                                 │
     "                                 └ a session file was used and its file is readable
 endfu
@@ -704,7 +697,7 @@ fu s:should_pause_session() abort "{{{2
     "      │          ┌ :STrack ∅
     "      │          │                ┌ the current session is being tracked
     "      │          │                │
-    return !s:bang && empty(s:file) && exists('g:my_session')
+    return !s:bang && s:file is# '' && exists('g:my_session')
 endfu
 
 fu s:snr() "{{{2
@@ -724,14 +717,14 @@ fu session#status() abort "{{{2
     " We create the variable `state` whose value, 0, 1 or 2, stands for
     " the state of the environment.
     "
-    "           ┌ a session has been loaded/saved
-    "           │                        ┌ it's tracked by our plugin
-    "           │                        │
-    let state = !empty(v:this_session) + exists('g:my_session')
-    "                  │
-    "                  └ stores the path to the last file which has been used
-    "                    to load/save a session;
-    "                    if no session has been saved/loaded, it's empty
+    "            ┌ a session has been loaded/saved
+    "            │                           ┌ it's tracked by our plugin
+    "            │                           │
+    let state = (v:this_session isnot# '') + exists('g:my_session')
+    "            │
+    "            └ stores the path to the last file which has been used
+    "              to load/save a session;
+    "              if no session has been saved/loaded, it's empty
     "
     " We can use this sum to express the state because there's no ambiguity.
     " Only 1 state can produce 0.
@@ -967,8 +960,8 @@ endfu
 
 fu s:where_do_we_save() abort "{{{2
     " :STrack ∅
-    if empty(s:file)
-        if empty(s:last_used_session)
+    if s:file is# ''
+        if s:last_used_session is# ''
             if !isdirectory(s:SESSION_DIR)
                 call mkdir(s:SESSION_DIR)
             endif
