@@ -170,8 +170,8 @@ fu s:delete(bang, session) abort "{{{2
 endfu
 
 fu s:handle_session(bang, file) abort "{{{2
-    " We move `a:bang`, `a:file` , and put `s:last_used_session` into the
-    " script-local scope, to NOT have to pass them as arguments to various
+    " We  move  `a:bang`, `a:file`  ,  and  put `s:last_used_session`  into  the
+    " script-local  scope, to  NOT have  to pass  them as  arguments to  various
     " functions:
     "
     "     s:should_delete_session()
@@ -188,19 +188,18 @@ fu s:handle_session(bang, file) abort "{{{2
     "    - s:session_delete()
     "    - s:where_do_we_save()
     "
-    " It's useful to be able to delete a session which isn't currently
-    " tracked, and to track the session using the session file of the last
-    " session used.
+    " It's useful to be able to  delete a session which isn't currently tracked,
+    " and to track the session using the session file of the last session used.
     let s:last_used_session = get(g:, 'my_session', v:this_session)
 
     try
-        " `:STrack` should behave mostly like `:mksession` with the
-        " additional benefit of updating the session file.
+        " `:STrack` should  behave mostly like `:mksession`  with the additional
+        " benefit of updating the session file.
         "
         " However, we want 2 additional features:  pause and deletion.
         "
-        "         :STrack     pause
-        "         :STrack!    delete
+        "     :STrack     pause
+        "     :STrack!    delete
 
         if s:should_pause_session()
             return s:session_pause()
@@ -221,22 +220,22 @@ fu s:handle_session(bang, file) abort "{{{2
         "                                           ├───────────────────────────────┘
         "                                           │
         " We don't want to raise an error from the current function (ugly stack trace).
-        " The user only knows about `:mksession`, so the error must look like
+        " The user  only knows about `:mksession`,  so the error must  look like
         " it's coming from the latter.
-        " We just return 'mksession file'. It will be executed outside this function,
-        " fail, and produce the “easy-to-read“ error message:
+        " We  just return  'mksession file'. It  will be  executed outside  this
+        " function, fail, and produce the “easy-to-read“ error message:
         "
         "         E189: "file" exists (add ! to override)
 
         let g:my_session = s:file
         " let `track()` know that it must save & track the current session
 
-        " Why not simply return `s:track()`, and move the `echo` statement in
+        " Why not  simply return `s:track()`,  and move the `echo`  statement in
         " the latter?
-        " `s:track()` is frequently called by the autocmd listening to
+        " `s:track()`  is   frequently  called  by  the   autocmd  listening  to
         " BufWinEnter. We don't want the message to be echo'ed all the time.
-        " The message, and the renaming of the tmux pane, should only occur
-        " when we begin the tracking of a new session.
+        " The message, and the renaming of the tmux pane, should only occur when
+        " we begin the tracking of a new session.
         let error = s:track(0)
         if empty(error)
             echo 'Tracking session in '..fnamemodify(s:file, ':~:.')
@@ -587,11 +586,11 @@ fu s:safe_to_load_session() abort "{{{2
 endfu
 
 fu s:save_options() abort "{{{2
-    " Even  though we  don't include  'options'  inside 'ssop',  a session  file
-    " manipulates the value of 'shm'. We  save and restore this option manually,
-    " to be sure it won't be changed.
+    " Even though  we don't  include `options` inside  `'ssop'`, a  session file
+    " manipulates  the  value  of  `'shm'`. We  save  and  restore  this  option
+    " manually, to be sure it won't be changed.
     "
-    " Same thing for 'spr' and 'sb'.
+    " Same thing for `'spr'` and `'sb'`.
     return {
         \ 'sb':  &sb,
         \ 'shm': &shm,
