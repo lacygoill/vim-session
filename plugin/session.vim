@@ -579,16 +579,48 @@ fu s:safe_to_load_session() abort "{{{2
 endfu
 
 fu s:save_options() abort "{{{2
-    " Even though  we don't  include `options` inside  `'ssop'`, a  session file
-    " manipulates  the  value  of  `'shm'`. We  save  and  restore  this  option
-    " manually, to be sure it won't be changed.
+    " Save values of options which will be changed by the session file (to restore them later):{{{
     "
-    " Same thing for `'spr'` and `'sb'`.
+    "    - `'shortmess'`
+    "    - `'splitbelow'`
+    "    - `'splitright'`
+    "    - `'showtabline'`
+    "    - `'winheight'`
+    "    - `'winminheight'`
+    "    - `'winminwidth'`
+    "    - `'winwidth'`
+    "}}}
+    " I don't include the `options` item in `'ssop'`. So, why do I need to save/restore these options?{{{
+    "
+    " Because Vim  *needs* to  temporarily change the  values of  these specific
+    " options while sourcing a session.
+    " At  the end  of the  process, Vim  wants to  set those  options to  values
+    " expected by  the user. The only values  it knows the user  may expect, are
+    " the ones which were used at the time the session file was created.
+    " Therefore at the end of a session file, Vim writes `set winheight={current value}`:
+    "
+    "     $ vim -Nu NONE +'set winheight=123' +'mksession /tmp/.s.vim' +'qa!' && grep -n 'winheight' /tmp/.s.vim
+    "     6:set winheight=123~
+    "     23:set winheight=1~
+    "     153:set winheight=123 winwidth=20 shortmess=filnxtToOS~
+    "
+    " But  this implies  that when  you load  a session,  these options  may not
+    " be  preserved;  in  particular,  when  you restart  Vim,  and  the  latter
+    " automatically  sources  the  last  session,   in  effect,  Vim  will  have
+    " remembered the values of these options from the last session.
+    " That's  not what  we want;  when  we restart,  we want  all custom  config
+    " (options/mappings) to have been forgotten.
+    "}}}
     return {
-        \ 'sb':  &sb,
-        \ 'shm': &shm,
-        \ 'spr': &spr,
-        \ }
+    \ 'shortmess': &shortmess,
+    \ 'splitbelow':  &splitbelow,
+    \ 'splitright': &splitright,
+    \ 'showtabline': &showtabline,
+    \ 'winheight': &winheight,
+    \ 'winminheight': &winminheight,
+    \ 'winminwidth': &winminwidth,
+    \ 'winwidth': &winwidth,
+    \ }
 endfu
 
 fu s:session_loaded_in_other_instance(session_file) abort "{{{2
