@@ -63,8 +63,26 @@ augroup my_session
     " would only save the last tabpage (or the current one?). So, we delay the
     " saving.
 
+    " Why inspecting `v:servername`?{{{
+    "
+    " To not overwrite the `session/last` file if we're editing it outside a session.
+    " We sometimes need to do this to debug some issue.
+    "}}}
+    " TODO: Why `MY_LAST_SESSION` is in uppercase?{{{
+    "
+    " To save it in viminfo? But we don't need it, since we use `session/last`, right?
+    "
+    " ---
+    "
+    " Same question for `MY_PENULTIMATE_SESSION`.
+    "
+    " ---
+    "
+    " If we don't need uppercase names,  write them in lowercase, and remove the
+    " next `v:servername isnot# ''` condition.
+    "}}}
     au VimLeavePre * exe s:track(1)
-        \ | if get(g:, 'MY_LAST_SESSION', '') isnot# ''
+        \ | if get(g:, 'MY_LAST_SESSION', '') isnot# '' && v:servername isnot# ''
         \ |     call writefile([g:MY_LAST_SESSION], $HOME..'/.vim/session/last')
         \ | endif
 augroup END
@@ -117,10 +135,7 @@ com -bar -bang -nargs=? -complete=file                      STrack   exe s:handl
 
 " Functions "{{{1
 fu s:close() abort "{{{2
-    if !exists('g:my_session')
-        return ''
-    endif
-
+    if !exists('g:my_session') | return '' | endif
     sil STrack
     sil! tabonly | sil! only | enew
     call s:rename_tmux_window('vim')
@@ -128,9 +143,7 @@ fu s:close() abort "{{{2
 endfu
 
 fu s:delete(bang, session) abort "{{{2
-    if !a:bang
-        return 'echoerr "Add a bang"'
-    endif
+    if !a:bang | return 'echoerr "Add a bang"' | endif
 
     if a:session is# '#'
         if exists('g:MY_PENULTIMATE_SESSION')
@@ -447,9 +460,7 @@ fu s:rename(new_name) abort "{{{2
 endfu
 
 fu s:rename_tmux_window(file) abort "{{{2
-    if !exists('$TMUX')
-        return
-    endif
+    if !exists('$TMUX') | return | endif
 
     "                                               ┌ remove head (/path/to/)
     "                                               │ ┌ remove extension (.vim)
