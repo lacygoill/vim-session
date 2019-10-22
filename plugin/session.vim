@@ -370,7 +370,7 @@ fu s:load(session_file) abort "{{{2
     "     silent! argdel *
     "
     " ... for every window.
-    " The `:arglocal` causes all windows to use the arglist by default.
+    " The `:arglocal` causes all windows to use the local arglist by default.
     "
     " I don't want that.
     " By default, Vim uses the global arglist, which should be the rule.
