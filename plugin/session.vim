@@ -94,17 +94,17 @@ augroup END
 "
 " If an error occurs in a function, we'll get an error such as:
 "
-"         Error detected while processing function <SNR>42_track:
-"         line   19:
-"         Vim:E492: Not an editor command:             abcd
+"     Error detected while processing function <SNR>42_track:
+"     line   19:
+"     Vim:E492: Not an editor command:             abcd
 "
 " We want our `:STrack` command, and our autocmd, to produce a message similar
 " to a regular Ex command. We don't want the detail of the implementation to leak.
 "
 " By using `exe function()`, we can get an error message such as:
 "
-"         Error detected while processing BufWinEnter Auto commands for "*":
-"         Vim:E492: Not an editor command:             abcd
+"     Error detected while processing BufWinEnter Auto commands for "*":
+"     Vim:E492: Not an editor command:             abcd
 "
 " How does it work?
 " When an error may occur, we capture it and convert it into a string:
@@ -120,7 +120,7 @@ augroup END
 " allows us to choose the context in which an error may occur.
 " Note, however, that in this case, it prevents our `:WTF` command from capturing
 " the error, because it will happen outside of a function.
-" "}}}
+"}}}
 
 " We use `:echoerr` for `:SDelete`, `:SRename`, `:SClose`, because we want the
 " command to disappear if no error occurs during its execution.
@@ -376,7 +376,7 @@ fu s:load(session_file) abort "{{{2
     " By default, Vim uses the global arglist, which should be the rule.
     " Using a local arglist should be the exception.
     "}}}
-    tabdo windo argg
+    noa tabdo windo argg
 
     " FIXME:
     " When we change the local directory of a window A, the next time
