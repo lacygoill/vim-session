@@ -10,7 +10,7 @@ let g:loaded_session = 1
 " TODO:
 " Maybe add a  command opening a buffer  showing all session names  with a short
 " description.
-" When you would click on one, you would have a longer description in a split.
+" When you would select one, you would have a longer description in a popup window.
 
 " TODO:
 " When Vim  starts, we could  tell the plugin to  look for a  `session.vim` file
@@ -18,6 +18,9 @@ let g:loaded_session = 1
 " track the session.
 " This would allow us to not have to name all our sessions.
 " Also, `:STrack ∅` should save & track the current session in `:pwd`/session.vim.
+" Update: Wait. How would we pause the tracking of a session then?
+" I guess it would  need to check whether a session is  being tracked (easy), or
+" has been tracked in the past (tricky?)...
 
 " Autocmds {{{1
 
@@ -126,12 +129,12 @@ augroup END
 " command to disappear if no error occurs during its execution.
 " For `:SLoad` and `:STrack`, we use `:exe` because there will always be
 " a message to display; even when everything works fine.
-com -bar                -complete=custom,s:suggest_sessions SClose   exe s:close()
-com -bar -bang -nargs=? -complete=custom,s:suggest_sessions SDelete  exe s:delete(<bang>0, <q-args>)
-com -bar       -nargs=1 -complete=custom,s:suggest_sessions SRename  exe s:rename(<q-args>)
+com -bar          -complete=custom,s:suggest_sessions SClose  exe s:close()
+com -bar -nargs=? -complete=custom,s:suggest_sessions SDelete exe s:delete(<q-args>)
+com -bar -nargs=1 -complete=custom,s:suggest_sessions SRename exe s:rename(<q-args>)
 
-com -bar       -nargs=? -complete=custom,s:suggest_sessions SLoad    exe s:load(<q-args>)
-com -bar -bang -nargs=? -complete=file                      STrack   exe s:handle_session(<bang>0, <q-args>)
+com -bar       -nargs=? -complete=custom,s:suggest_sessions SLoad  exe s:load(<q-args>)
+com -bar -bang -nargs=? -complete=file                      STrack exe s:handle_session(<bang>0, <q-args>)
 
 " Functions "{{{1
 fu s:close() abort "{{{2
@@ -142,9 +145,7 @@ fu s:close() abort "{{{2
     return ''
 endfu
 
-fu s:delete(bang, session) abort "{{{2
-    if !a:bang | return 'echoerr "Add a bang"' | endif
-
+fu s:delete(session) abort "{{{2
     if a:session is# '#'
         if exists('g:MY_PENULTIMATE_SESSION')
             let session_file = g:MY_PENULTIMATE_SESSION
@@ -229,7 +230,20 @@ fu s:handle_session(bang, file) abort "{{{2
         " Or unless `:STrack` was run without argument (in which case we want to
         " resume the tracking of a paused session).
         "}}}
-        if !s:bang && a:file isnot# '' | return 'mksession '..fnameescape(s:file) | endif
+        " Why `filereadable()`?{{{
+        "
+        " Well, we want  to prevent overwriting an existing session  file, so it
+        " makes sense to check that the file does exist.
+        "
+        " Besides, if you  don't, then if you run `:STrack  foo`, while there is
+        " no  `foo.vim` session  file, Vim  will just  run `:mksession`,  but it
+        " won't set `g:my_session`, nor will it call `s:track()`.
+        "
+        " IOW, you'll create a regular session file, which won't be tracked.
+        "}}}
+        if !s:bang && a:file isnot# '' && filereadable(s:file)
+            return 'mksession '..fnameescape(s:file)
+        endif
 
         let g:my_session = s:file
         " let `track()` know that it must save & track the current session
@@ -271,8 +285,10 @@ fu s:load(session_file) abort "{{{2
     if session_file is# ''
         return 'echoerr "No session to load"'
     elseif !filereadable(session_file)
-        " Do NOT use `printf()` like this
-        "         return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(session_file, ':t'))
+        " Do *not* use `printf()` like this:{{{
+        "
+        "     return printf('echoerr "%s doesn''t exist, or it''s not readable"', fnamemodify(session_file, ':t'))
+        "}}}
         return 'echoerr '..string(printf("%s doesn't exist, or it's not readable", fnamemodify(session_file, ':t')))
     elseif exists('g:my_session') && session_file is# g:my_session
         return 'echoerr '..string(printf('%s is already the current session', fnamemodify(session_file, ':t')))
@@ -294,17 +310,7 @@ fu s:load(session_file) abort "{{{2
         let g:MY_PENULTIMATE_SESSION = g:my_session
     endif
 
-    " Why?{{{
-    "
-    " I had hard-to-debug issues in the  past, because for some reason this line
-    " was missing from some session files:
-    "
-    "     let g:my_session = v:this_session
-    "
-    " Let's make sure it never happens again.
-    "}}}
     call s:tweak_session_file(session_file)
-
     "  ┌ Sometimes, when the session contains one of our folded notes,
     "  │ an error is raised. It seems some commands, like `zo`, fail to
     "  │ manipulate a fold, because it doesn't exist. Maybe the buffer is not
@@ -321,10 +327,10 @@ fu s:load(session_file) abort "{{{2
     " disabled, THEN emit `BufReadPost` in all buffers, to execute the autocmds
     " associated to filetype detection:
     "
-    "         noa so ~/.vim/session/default.vim
-    "         doautoall <nomodeline> filetypedetect BufReadPost
-    "                                │
-    "                                └ $VIMRUNTIME/filetype.vim
+    "     noa so ~/.vim/session/default.vim
+    "     doautoall <nomodeline> filetypedetect BufReadPost
+    "                            │
+    "                            └ $VIMRUNTIME/filetype.vim
     "
     " But, this would cause other issues:
     "
@@ -354,10 +360,9 @@ fu s:load(session_file) abort "{{{2
     endif
 
     call s:restore_options(options_save)
-    call s:restore_help_settings_when_needed()
-    call s:restore_window_local_settings()
+    call s:restore_help_options()
     call s:rename_tmux_window(session_file)
-    call s:open_folds()
+    call s:win_execute_everywhere('norm! zv')
 
     " use the global arglist in all windows
     " Why is it needed?{{{
@@ -376,7 +381,7 @@ fu s:load(session_file) abort "{{{2
     " By default, Vim uses the global arglist, which should be the rule.
     " Using a local arglist should be the exception.
     "}}}
-    noa tabdo windo argg
+    call s:win_execute_everywhere('argg')
 
     " FIXME:
     " When we change the local directory of a window A, the next time
@@ -390,18 +395,29 @@ fu s:load(session_file) abort "{{{2
     " directory of all windows is `~/.vim`.
     "
     "     let orig = win_getid()
-    "     sil tabdo windo cd ~/.vim
+    "     sil! tabdo windo cd ~/.vim
     "     call win_gotoid(orig)
     "
     " Update:
     " I've commented the code because it interferes with `vim-cwd`.
+    "
+    " ---
+    "
+    " I'm not sure the above is true.
+    " When does Vim write `:lcd` in a session file?
+    " It seems to do it even when I don't run `:lcd` manually...
     return ''
 endfu
 
 fu s:load_session_on_vimenter() abort "{{{2
-    " Don't source the last session when we run `$ vim`; it's not always what we want.
-    " Source it only when we run `$ nv`.
-    if v:servername is# '' | return | endif
+    " Don't source the  last session when we  run `$ vim` or `$  nvim`; it's not
+    " always what we want; source it only when we run `$ nv`.
+    " What's the default value of `v:servername`?{{{
+    "
+    " In Vim it's empty.
+    " In Nvim, it starts with `/tmp/nvim`.
+    "}}}
+    if v:servername isnot# 'VIM' | return | endif
 
     let file = $HOME..'/.vim/session/last'
     if filereadable(file)
@@ -425,12 +441,6 @@ fu s:load_session_on_vimenter() abort "{{{2
     if s:safe_to_load_session()
         exe 'SLoad '..g:MY_LAST_SESSION
     endif
-endfu
-
-fu s:open_folds() abort "{{{2
-    let winid = win_getid()
-    tabdo windo norm! zv
-    call win_gotoid(winid)
 endfu
 
 fu s:prepare_restoration(file) abort "{{{2
@@ -477,93 +487,61 @@ fu s:rename_tmux_window(file) abort "{{{2
     augroup END
 endfu
 
-fu s:restore_help_settings() abort "{{{2
-    " For some reason, Vim doesn't restore some settings in a help buffer,
-    " including the syntax highlighting.
-
-    setl ft=help nobuflisted noma ro
-    so $VIMRUNTIME/syntax/help.vim
-
-    augroup restore_help_settings
-        au! * <buffer>
-        au BufReadPost <buffer> setl ft=help nobuflisted noma ro
-    augroup END
-
-    " TODO:
-    " Isn't there a simpler solution?
-    " Vim doesn't rely on an autocmd to restore the settings of a help buffer.
-    " Confirmed by typing:         au * <buffer=42>
+fu s:restore_help_options() abort "{{{2
+    " Rationale:{{{
     "
-    " If we reload a help buffer, without installing an autocmd to restore the
-    " filetype, the latter gets back to `text`.
-    " If we re-open the file with the right `:h tag`, it opens a new window,
-    " with the same `text` file. From there, if we reload the file, it gets
-    " back to `help` in both windows. It happens with and without the 1st
-    " command:
+    " Without, a few options are not properly restored in a help buffer:
     "
-    "         setl ft=help nobuflisted noma ro
+    "    - `'buflisted'`
+    "    - `'buftype'`
+    "    - `'foldenable'`
+    "    - `'iskeyword'`
+    "    - `'modifiable'`
     "
-    " I've tried to hook into all the events fired by `:h`, but none worked.
-
-    " We could also do that:
+    " In particular, if `'isk'` is not correct, you may not be able to jump to a
+    " tag (or preview it).
     "
-    "         exe 'h '.matchstr(expand('%'), '.*/doc/\zs.*\.txt')
-    "         exe "norm! \<c-o>"
-    "         e
+    " MWE:
     "
-    " But for some reason, `:e` doesn't do its part. It should immediately
-    " re-apply syntax highlighting. It doesn't. We have to reload manually (:e).
-endfu
-
-fu s:restore_help_settings_when_needed() abort "{{{2
-    " `:bufdo` is executed in the context of the last window of the last tabpage.
-    " It could replace its buffer with another buffer (the one with the biggest number).
-    " We don't want that, so we save the current buffer number, to restore it later.
-    let cur_bufnr = bufnr('%')
-
-    sil! bufdo if expand('%:p') =~# '/doc/.*\.txt$'
-           \ |     call s:restore_help_settings()
-           \ | endif
-
-    " I had an `E86` error once (buffer didn't exist anymore).
-    if bufexists(cur_bufnr)
-        exe 'b '..cur_bufnr
-    endif
+    "     :h windows.txt
+    "     /usr_07.txt
+    "     SPC R
+    "     :wincmd }
+    "     E426: tag not found: usr_07~
+    "
+    " And if `'bt'` is not correct, there may still be some problematic tags:
+    "
+    "     :h :bufdo /'eventignore'
+    "     SPC R
+    "     :wincmd }
+    "     E426: tag not found: eventignore~
+    "
+    " ---
+    "
+    " I found those options by comparing the output of `:setl` in a working help
+    " buffer, and in a broken one.
+    "
+    " ---
+    "
+    " Alternatively,  you could  also  close  the help  window,  and re-run  the
+    " relevant `:h topic` command.
+    "
+    " Including the  `localoptions` item in  `'ssop'` would also fix  the issue,
+    " but I  don't want  to do  it, because when  loading a  session I  want all
+    " options to be reset with sane values.
+    "}}}
+    let cur_winid = win_getid()
+    sil! tabdo windo if &ft is# 'help'
+    \ |     let &l:isk = '!-~,^*,^|,^",192-255,-'
+    \ |     setl bt=help nobl nofen noma
+    \ | endif
+    call win_gotoid(cur_winid)
 endfu
 
 fu s:restore_options(dict) abort "{{{2
     for [op, val] in items(a:dict)
         exe 'let &'..op..' = '..(type(val) == type('') ? string(val) : val)
     endfor
-endfu
-
-fu s:restore_window_local_settings() abort "{{{2
-    let cur_winid = win_getid()
-
-    " We fire `BufWinEnter` in all windows to apply window-local options in
-    " all opened windows. Also, it may be useful to position us at the end of
-    " the changelist (through our autocmd `my_changelist` which listens to this
-    " event).
-    "
-    " Why not simply:
-    "       doautoall <nomodeline> BufWinEnter
-    " ?
-    " Because `:doautoall` executes the autocmds in the context of the BUFFERS.
-    " But their purpose is to set WINDOW-local options.
-    " They need to be executed in the context of the windows, not the buffers.
-    "
-    " MWE:
-    "         bufdo setl list          only affects current window
-    "         windo setl list          only affects windows in current tabpage
-    "         tabdo windo setl list    affects all windows
-
-    sil! tabdo windo doautocmd BufWinEnter
-    "  │ │     │
-    "  │ │     └ iterate over windows
-    "  │ └ iterate over tabpages
-    "  └ an error shouldn't interrupt the process
-
-    call win_gotoid(cur_winid)
 endfu
 
 fu s:safe_to_load_session() abort "{{{2
@@ -865,13 +843,12 @@ fu s:track(on_vimleavepre) abort "{{{2
                 " remove the global arglist
                 argg | %argd
                 " remove all the local arglists
-                sil! noa tabdo windo argl | %argd
+                call s:win_execute_everywhere('argl | %argd')
             endif
+
             "             ┌ overwrite any existing file
             "             │
             exe 'mksession! '..fnameescape(g:my_session)
-
-            call s:tweak_session_file(g:my_session)
 
             " Let Vim know that this session is the last used.
             " Useful when we do this:
@@ -1041,6 +1018,37 @@ fu s:where_do_we_save() abort "{{{2
            \ ?     fnamemodify(s:file, ':p')
            \ :     s:SESSION_DIR..'/'..s:file..'.vim'
     endif
+endfu
+
+fu s:win_execute_everywhere(cmd) abort "{{{2
+    let orig_winid = win_getid()
+    if !has('nvim')
+        let winids = map(getwininfo(), {_,v -> v.winid})
+        noa call map(winids, {_,v -> win_execute(v, a:cmd)})
+    else
+        " TODO: Study the best possible position for `sil!` and `noa`.
+        " Same thing for the `noa` in the previous `win_execute()`.
+        "
+        " ---
+        "
+        " Once Nvim supports `win_execute()`, remove this `if` block.
+        "
+        " ---
+        "
+        " For Nvim, increase the  height of the window by 1  if it has decreased
+        " by 1 and if `&wmh == 0`.
+        sil! noa exe 'tabdo windo '..a:cmd
+        "  │          │     │
+        "  │          │     └ iterate over windows
+        "  │          └ iterate over tab pages
+        "  └ an error shouldn't interrupt the process
+        "
+        " ---
+        "
+        " Is `sil!` really necessary?
+        " Find an example where it is.
+    endif
+    call win_gotoid(orig_winid)
 endfu
 "}}}1
 " Mapping {{{1
