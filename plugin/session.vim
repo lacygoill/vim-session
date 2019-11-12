@@ -383,6 +383,15 @@ fu s:load(session_file) abort "{{{2
     "}}}
     call s:win_execute_everywhere('argg')
 
+    " reset height of window{{{
+    "
+    " Usually, this is not necessary.
+    " But it's useful if the last time the session was saved you were focusing a
+    " scratch buffer; such a buffer is  not restored, which causes the height of
+    " the windows in the current tab page to be wrong.
+    "}}}
+    do <nomodeline> WinEnter
+
     " FIXME:
     " When we change the local directory of a window A, the next time
     " Vim creates a session file, it adds the command `:lcd some_dir`.
@@ -530,12 +539,18 @@ fu s:restore_help_options() abort "{{{2
     " but I  don't want  to do  it, because when  loading a  session I  want all
     " options to be reset with sane values.
     "}}}
-    let cur_winid = win_getid()
-    sil! tabdo windo if &ft is# 'help'
-    \ |     let &l:isk = '!-~,^*,^|,^",192-255,-'
-    \ |     setl bt=help nobl nofen noma
-    \ | endif
-    call win_gotoid(cur_winid)
+    let winids = map(getwininfo(), {_,v -> v.winid})
+    call filter(winids, {_,v -> getwinvar(v, '&ft') is# 'help'})
+    if !has('nvim')
+        noa call map(winids, {_,v -> win_execute(v, 'call s:restore_these()')})
+    else
+        noa call map(winids, {_,v -> lg#win_execute(v, 'call s:restore_these()')})
+    endif
+endfu
+
+fu s:restore_these() abort
+    let &l:isk = '!-~,^*,^|,^",192-255,-'
+    setl bt=help nobl nofen noma
 endfu
 
 fu s:restore_options(dict) abort "{{{2
@@ -613,7 +628,7 @@ fu s:save_options() abort "{{{2
 endfu
 
 fu s:session_loaded_in_other_instance(session_file) abort "{{{2
-    let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^\%("\s*\)\=badd '})
+    let buffers = filter(readfile(a:session_file), {_,v -> v =~# '^badd '})
 
     if buffers ==# [] | return [0, 0] | endif
 
@@ -657,7 +672,7 @@ fu s:session_loaded_in_other_instance(session_file) abort "{{{2
     "     let list1 = [1,2,3,4,5]
     "     let list2 = map(copy(list1), {_,v -> v + 1})
     "}}}
-    call map(buffers, {_,v -> matchstr(v, '^\%("\s*\)\=badd +\d\+ \zs.*')})
+    call map(buffers, {_,v -> matchstr(v, '^badd +\d\+ \zs.*')})
     call map(buffers, {_,v -> fnamemodify(v, ':p')})
 
     let swapfiles = map(copy(buffers),
@@ -789,18 +804,20 @@ endfu
 fu s:track(on_vimleavepre) abort "{{{2
     " This function saves the current session, iff `g:my_session` exists.
     " In the session file, it adds the line:
-    "         let g:my_session = v:this_session
+    "
+    "     let g:my_session = v:this_session
     "
     " ... so that  the next time we  load the session, the plugin  knows that it
     " must track it automatically.
 
     if exists('g:SessionLoad')
-        " `g:SessionLoad` exists temporarily while a session is loading.
+        " `g:SessionLoad` exists temporarily while a session is loading.{{{
+        "
         " See: :h SessionLoad-variable
         "
         " Suppose we source a session file:
         "
-        "       :so file
+        "     :so file
         "
         " During the restoration process, `BufWinEnter` would be fired several
         " times. Every time, the current function would try to update the session
@@ -809,7 +826,7 @@ fu s:track(on_vimleavepre) abort "{{{2
         "
         " The session file will be updated next time (`BufWinEnter`, `TabClosed`,
         " `VimLeavePre`).
-
+        "}}}
         return ''
     endif
 
@@ -925,32 +942,23 @@ fu s:tweak_session_file(file) abort "{{{2
     " session was systematically loaded.
     "}}}
     call insert(body, 'let g:my_session = v:this_session', -3)
-    " Why commenting the `:badd` commands?{{{
+    " Do *not* try to comment the `:badd` lines.{{{
     "
-    " It could prevent the window-local  options from being applied when
-    " the buffers are displayed in a different window.
+    "     call map(body, {_,v -> substitute(v, '\m\C^badd ', '" badd ', '')})
     "
-    " MWE:
+    " It could be tempting to do so  in order to fix an issue where window-local
+    " options are not correctly applied when  we re-display a buffer in a second
+    " window.
     "
-    "     $ cat <<'EOF' >/tmp/file
-    "     fold one title [[[1
+    " However, for some  reason, it would cause  Nvim to not restore  a tab page
+    " when we source a session with `:SLoad`.
     "
-    "     some text
+    " The difference  of behaviors between  Vim and  Nvim probably comes  from a
+    " missing Vim patch in Nvim.
     "
-    "     fold two title [[[1
-    "
-    "     some other text
-    "     EOF
-    "
-    "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | badd /tmp/file | b file' /tmp/file
-    "
-    " Notice how the file is not folded in the top window.
-    "
-    " Now, if you remove `:badd`, both windows are correctly folded:
-    "
-    "     $ vim -Nu NONE +'setl fdm=marker fmr=[[[,]]]| new | b file' /tmp/file
+    " Anyway, if you  have an issue with window-local options,  set them from an
+    " autocmd listening to `BufWinEnter`.
     "}}}
-    call map(body, {_,v -> substitute(v, '\m\C^badd ', '" badd ', '')})
     call writefile(body, a:file)
 endfu
 
@@ -1021,34 +1029,12 @@ fu s:where_do_we_save() abort "{{{2
 endfu
 
 fu s:win_execute_everywhere(cmd) abort "{{{2
-    let orig_winid = win_getid()
+    let winids = map(getwininfo(), {_,v -> v.winid})
     if !has('nvim')
-        let winids = map(getwininfo(), {_,v -> v.winid})
         noa call map(winids, {_,v -> win_execute(v, a:cmd)})
     else
-        " TODO: Study the best possible position for `sil!` and `noa`.
-        " Same thing for the `noa` in the previous `win_execute()`.
-        "
-        " ---
-        "
-        " Once Nvim supports `win_execute()`, remove this `if` block.
-        "
-        " ---
-        "
-        " For Nvim, increase the  height of the window by 1  if it has decreased
-        " by 1 and if `&wmh == 0`.
-        sil! noa exe 'tabdo windo '..a:cmd
-        "  │          │     │
-        "  │          │     └ iterate over windows
-        "  │          └ iterate over tab pages
-        "  └ an error shouldn't interrupt the process
-        "
-        " ---
-        "
-        " Is `sil!` really necessary?
-        " Find an example where it is.
+        noa call map(winids, {_,v -> lg#win_execute(v, a:cmd)})
     endif
-    call win_gotoid(orig_winid)
 endfu
 "}}}1
 " Mapping {{{1
