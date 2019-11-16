@@ -361,6 +361,7 @@ fu s:load(session_file) abort "{{{2
 
     call s:restore_options(options_save)
     call s:restore_help_options()
+    call s:restore_help_ft()
     call s:rename_tmux_window(session_file)
     call s:win_execute_everywhere('norm! zv')
 
@@ -541,16 +542,49 @@ fu s:restore_help_options() abort "{{{2
     "}}}
     let winids = map(getwininfo(), {_,v -> v.winid})
     call filter(winids, {_,v -> getwinvar(v, '&ft') is# 'help'})
-    if !has('nvim')
-        noa call map(winids, {_,v -> win_execute(v, 'call s:restore_these()')})
-    else
-        noa call map(winids, {_,v -> lg#win_execute(v, 'call s:restore_these()')})
-    endif
+    noa call map(winids, {_,v -> lg#win_execute(v, 'call s:restore_these()')})
 endfu
 
 fu s:restore_these() abort
     let &l:isk = '!-~,^*,^|,^",192-255,-'
     setl bt=help nobl nofen noma
+endfu
+
+fu s:restore_help_ft() abort "{{{2
+    " Rationale:{{{
+    "
+    " Open a help file for a third-party plugin, then restart Vim (`SPC R`): the
+    " file type is not set in the help file anymore.
+    "
+    " MWE:
+    "
+    "     $ vim +'h autocmd | tabnext | h vimtex | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
+    "     $ vim -S /tmp/.s.vim
+    "
+    " The issue can be fixed by adding `options` in `'ssop'`:
+    "
+    "     $ vim +'h autocmd | tabnext | h vimtex | set ssop+=options | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
+    "                                              ^^^^^^^^^^^^^^^^^
+    "
+    " But I don't want to include this  item; when loading a session, I want all
+    " options to be reset with sane values.
+    "}}}
+    let rt_dirs = split(&rtp, ',')
+    call remove(rt_dirs, index(rt_dirs, $VIMRUNTIME))
+    if !has('nvim')
+        call getwininfo()
+            \ ->filter({_,v ->
+            \     fnamemodify(bufname(v.bufnr), ':p') =~# '\m\C/doc/.*\.txt$'
+            \     && index(rt_dirs, fnamemodify(bufname(v.bufnr), ':p:h:h')) != -1
+            \ })
+            \ ->map({_,v -> win_execute(v.winid, 'noswapfile set ft=help')})
+    else
+        call map(filter(getwininfo(), {_,v ->
+            \     fnamemodify(bufname(v.bufnr), ':p') =~# '\m\C/doc/.*\.txt$'
+            \     && index(rt_dirs, fnamemodify(bufname(v.bufnr), ':p:h:h')) != -1
+            \ }),
+            \ {_,v -> win_execute(v.winid, 'noswapfile set ft=help')})
+    endif
 endfu
 
 fu s:restore_options(dict) abort "{{{2
@@ -1030,11 +1064,7 @@ endfu
 
 fu s:win_execute_everywhere(cmd) abort "{{{2
     let winids = map(getwininfo(), {_,v -> v.winid})
-    if !has('nvim')
-        noa call map(winids, {_,v -> win_execute(v, a:cmd)})
-    else
-        noa call map(winids, {_,v -> lg#win_execute(v, a:cmd)})
-    endif
+    noa call map(winids, {_,v -> lg#win_execute(v, a:cmd)})
 endfu
 "}}}1
 " Mapping {{{1
