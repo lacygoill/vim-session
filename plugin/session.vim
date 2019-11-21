@@ -88,6 +88,7 @@ augroup my_session
         \ | if get(g:, 'MY_LAST_SESSION', '') isnot# '' && v:servername isnot# ''
         \ |     call writefile([g:MY_LAST_SESSION], $HOME..'/.vim/session/last')
         \ | endif
+    au User MyFlags call statusline#hoist('global', '%4{session#status()}', 10)
 augroup END
 
 " Commands {{{1
