@@ -88,7 +88,7 @@ augroup my_session
         \ | if get(g:, 'MY_LAST_SESSION', '') isnot# '' && v:servername isnot# ''
         \ |     call writefile([g:MY_LAST_SESSION], $HOME..'/.vim/session/last')
         \ | endif
-    au User MyFlags call statusline#hoist('global', '%4{session#status()}', 0)
+    au User MyFlags call statusline#hoist('global', '%{session#status()}', 5)
 augroup END
 
 " Commands {{{1
@@ -482,11 +482,11 @@ endfu
 fu s:rename_tmux_window(file) abort "{{{2
     if !exists('$TMUX') | return | endif
 
-    "                                               ┌ remove head (/path/to/)
-    "                                               │ ┌ remove extension (.vim)
-    "                                               │ │
-    let window_title = string(fnamemodify(a:file, ':t:r'))
-    sil call system('tmux rename-window -t '..$TMUX_PANE..' '..window_title)
+    "                                        ┌ remove head (/path/to/)
+    "                                        │ ┌ remove extension (.vim)
+    "                                        │ │
+    let window_title = fnamemodify(a:file, ':t:r')
+    sil call system('tmux rename-window -t '..$TMUX_PANE..' '..shellescape(window_title))
 
     augroup my_tmux_window_title
         au!
