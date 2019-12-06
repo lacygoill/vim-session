@@ -630,7 +630,7 @@ fu s:save_options() abort "{{{2
     " I don't include the `options` item in `'ssop'`. So, why do I need to save/restore these options?{{{
     "
     " Because Vim  *needs* to  temporarily change the  values of  these specific
-    " options while sourcing a session.
+    " options while restoring a session.
     " At  the end  of the  process, Vim  wants to  set those  options to  values
     " expected by  the user. The only values  it knows the user  may expect, are
     " the ones which were used at the time the session file was created.
@@ -649,15 +649,15 @@ fu s:save_options() abort "{{{2
     " (options/mappings) to have been forgotten.
     "}}}
     return {
-    \ 'shortmess': &shortmess,
-    \ 'splitbelow':  &splitbelow,
-    \ 'splitright': &splitright,
-    \ 'showtabline': &showtabline,
-    \ 'winheight': &winheight,
-    \ 'winminheight': &winminheight,
-    \ 'winminwidth': &winminwidth,
-    \ 'winwidth': &winwidth,
-    \ }
+        \ 'shortmess': &shortmess,
+        \ 'splitbelow':  &splitbelow,
+        \ 'splitright': &splitright,
+        \ 'showtabline': &showtabline,
+        \ 'winheight': &winheight,
+        \ 'winminheight': &winminheight,
+        \ 'winminwidth': &winminwidth,
+        \ 'winwidth': &winwidth,
+        \ }
 endfu
 
 fu s:session_loaded_in_other_instance(session_file) abort "{{{2
