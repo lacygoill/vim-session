@@ -39,7 +39,7 @@ augroup my_session
     "
     "    2. update the session file frequently, and as long as `g:my_session` exists
     "       IOW, track the session
-"}}}
+    "}}}
     "                ┌ if sth goes wrong, the function returns the string:
     "                │      'echoerr '.string(v:exception)
     "                │
@@ -354,7 +354,7 @@ fu s:load(session_file) abort "{{{2
     "     if exists('g:SessionLoad')
     "         return
     "     endif
-"}}}
+    "}}}
 
     if exists('g:my_session')
         let g:MY_LAST_SESSION = g:my_session
