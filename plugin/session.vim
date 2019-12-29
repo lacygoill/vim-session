@@ -141,7 +141,7 @@ com -bar -bang -nargs=? -complete=file                      STrack exe s:handle_
 fu s:close() abort "{{{2
     if !exists('g:my_session') | return '' | endif
     sil STrack
-    sil! tabonly | sil! only | enew
+    sil tabonly | sil only | enew
     call s:rename_tmux_window('vim')
     return ''
 endfu
@@ -149,22 +149,24 @@ endfu
 fu s:delete(session) abort "{{{2
     if a:session is# '#'
         if exists('g:MY_PENULTIMATE_SESSION')
-            let session_file = g:MY_PENULTIMATE_SESSION
+            let session_to_delete = g:MY_PENULTIMATE_SESSION
         else
             return 'echoerr "No alternate session to delete"'
         endif
     else
-        let session_file = a:session is# ''
-                       \ ?     get(g:, 'my_session', 'MY_LAST_SESSION')
-                       \ :     fnamemodify(s:SESSION_DIR..'/'..a:session..'.vim', ':p')
+        let session_to_delete = a:session is# ''
+            \ ? get(g:, 'my_session', 'MY_LAST_SESSION')
+            \ : fnamemodify(s:SESSION_DIR..'/'..a:session..'.vim', ':p')
     endif
 
-    if exists('g:my_session') && session_file is# g:my_session
+    if session_to_delete is# get(g:, 'MY_PENULTIMATE_SESSION', '')
+        unlet! g:MY_PENULTIMATE_SESSION
+    elseif session_to_delete is# get(g:, 'my_session', '')
         if exists('g:MY_PENULTIMATE_SESSION')
-            " We have to load the alternate session BEFORE deleting the session
+            " We have to load the alternate session *before* deleting the session
             " file, because `:SLoad#` will take a last snapshot of the current
             " session, which would restore the deleted file.
-            sil! SLoad#
+            SLoad#
             " The current session has just become the alternate one.
             " Since we're going to delete its file, make the plugin forget about it.
             unlet! g:MY_PENULTIMATE_SESSION
@@ -174,16 +176,16 @@ fu s:delete(session) abort "{{{2
     endif
 
     " Delete the session file, and if sth goes wrong report what happened.
-    if delete(session_file)
-        " Do NOT use `printf()`:{{{
+    if delete(session_to_delete)
+        " Do *not* use `printf()`:{{{
         "
-        "     return printf('echoerr "Failed to delete %s"', session_file)
+        "     return printf('echoerr "Failed to delete %s"', session_to_delete)
         "
         " It would fail when the name of the session file contains a double quote.
         "}}}
-        return 'echoerr '..string('Failed to delete '..session_file)
+        return 'echoerr '..string('Failed to delete '..session_to_delete)
     endif
-    return 'echo '..string(session_file..' has been deleted')
+    return 'echo '..string(session_to_delete..' has been deleted')
 endfu
 
 fu s:handle_session(bang, file) abort "{{{2
@@ -267,7 +269,7 @@ fu s:handle_session(bang, file) abort "{{{2
         endif
 
     finally
-        redrawstatus!
+        redrawt
         unlet! s:bang s:file s:last_used_session
     endtry
 endfu
@@ -405,7 +407,7 @@ fu s:load(session_file) abort "{{{2
     " directory of all windows is `~/.vim`.
     "
     "     let orig = win_getid()
-    "     sil! tabdo windo cd ~/.vim
+    "     tabdo windo cd ~/.vim
     "     call win_gotoid(orig)
     "
     " Update:
@@ -461,9 +463,9 @@ fu s:prepare_restoration(file) abort "{{{2
     " For some reason, `:mksession` writes the command `:only` in the session
     " file, but not `:tabonly`. So, we make sure every tabpage/window is
     " closed, before restoring a session.
-    sil! tabonly | sil! only
-    "  │
-    "  └ if there's only 1 tab, `:tabonly` will display a message
+    sil tabonly | sil only
+    " │
+    " └ if there's only 1 tab, `:tabonly` will display a message
 endfu
 
 fu s:rename(new_name) abort "{{{2
@@ -943,10 +945,8 @@ fu s:track(on_vimleavepre) abort "{{{2
             " probably go wrong next time.
             " We don't want to go on trying to save a session.
             unlet! g:my_session
-
-            " update all status lines, to remove the `[∞]` item
-            redrawstatus!
-
+            " remove `[∞]` from the tab line
+            redrawt
             return 'echoerr '..string(v:exception)
         endtry
     endif
