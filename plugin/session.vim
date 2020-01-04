@@ -58,7 +58,7 @@ augroup my_session
     "    state of our session will be performed when VimLeavePre is fired.
     "    So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * call timer_start(0, {_ -> execute('exe '..s:snr()..'track(0)')})
+    au TabClosed * call timer_start(0, {_ -> execute('exe '..s:snr..'track(0)')})
     " We also save whenever we close a tabpage, because we don't want
     " a closed tabpage to be restored while we switch back and forth between
     " 2 sessions with `:SLoad`.
@@ -774,6 +774,7 @@ endfu
 fu s:snr() "{{{2
     return matchstr(expand('<sfile>'), '.*\zs<SNR>\d\+_')
 endfu
+let s:snr = get(s:, 'snr', s:snr())
 
 fu session#status() abort "{{{2
 
