@@ -1025,7 +1025,7 @@ fu s:where_do_we_save() abort "{{{2
     if s:file is# ''
         if s:last_used_session is# ''
             if !isdirectory(s:SESSION_DIR)
-                call mkdir(s:SESSION_DIR)
+                call mkdir(s:SESSION_DIR, 'p', 0700)
             endif
             return s:SESSION_DIR..'/default.vim'
         else
