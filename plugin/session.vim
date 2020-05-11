@@ -24,8 +24,7 @@ let g:loaded_session = 1
 
 " Autocmds {{{1
 
-augroup my_session
-    au!
+augroup my_session | au!
     au StdInReadPost * let s:read_stdin = 1
 
     "               ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
@@ -491,8 +490,7 @@ fu s:rename_tmux_window(file) abort "{{{2
     let window_title = fnamemodify(a:file, ':t:r')
     sil call system('tmux rename-window -t '..$TMUX_PANE..' '..shellescape(window_title))
 
-    augroup my_tmux_window_title
-        au!
+    augroup my_tmux_window_title | au!
         " We've just renamed the tmux window, so tmux automatically
         " disabled the 'automatic-rename' option. We'll re-enable it when
         " we quit Vim.
