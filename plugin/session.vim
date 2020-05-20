@@ -429,7 +429,7 @@ fu s:load_session_on_vimenter() abort "{{{2
     " In Vim it's empty.
     " In Nvim, it starts with `/tmp/nvim`.
     "}}}
-    if v:servername isnot# 'VIM' | return | endif
+    if index(['VIM', '/tmp/nvimsocket'], v:servername) == -1| return | endif
 
     let file = $HOME..'/.vim/session/last'
     if filereadable(file)
@@ -1002,6 +1002,10 @@ fu s:vim_quit_and_restart() abort "{{{2
     sil! update
     " Source:
     " https://www.reddit.com/r/vim/comments/5lj75f/how_to_reload_vim_completely_using_zsh_exit_to/
+
+    " save the name of the program which should be used when restarting inside a
+    " file; the info will be read by our `nv` zsh function
+    call writefile([has('nvim') ? 'nvr' : 'vim'], $HOME..'/.vim/tmp/restart')
 
     " Send the signal `USR1` to the shell  parent of the current Vim process,
     " so that it restarts a new one when we'll get back at the prompt.
