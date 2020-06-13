@@ -422,14 +422,10 @@ fu s:load(session_file) abort "{{{2
 endfu
 
 fu s:load_session_on_vimenter() abort "{{{2
-    " Don't source the  last session when we  run `$ vim` or `$  nvim`; it's not
-    " always what we want; source it only when we run `$ nv`.
-    " What's the default value of `v:servername`?{{{
-    "
-    " In Vim it's empty.
-    " In Nvim, it starts with `/tmp/nvim`.
-    "}}}
-    if index(['VIM', '/tmp/nvimsocket'], v:servername) == -1| return | endif
+    " Don't source the last session when we run `$ vim`; it's not always what we
+    " want; source it only  when we run `$ nv`.  Note that  the default value of
+    " `v:servername` is `VIM`.
+    if v:servername isnot# 'VIM' | return | endif
 
     let file = $HOME..'/.vim/session/last'
     if filereadable(file)
@@ -519,20 +515,12 @@ fu s:restore_help_options() abort "{{{2
     "}}}
     let rt_dirs = split(&rtp, ',')
     call remove(rt_dirs, index(rt_dirs, $VIMRUNTIME))
-    if !has('nvim')
-        call getwininfo()
-            \ ->filter({_,v ->
-            \     fnamemodify(bufname(v.bufnr), ':p') =~# '\m\C/doc/.*\.txt$'
-            \     && index(rt_dirs, fnamemodify(bufname(v.bufnr), ':p:h:h')) != -1
-            \ })
-            \ ->map({_,v -> win_execute(v.winid, 'noswapfile set ft=help')})
-    else
-        call map(filter(getwininfo(), {_,v ->
-            \     fnamemodify(bufname(v.bufnr), ':p') =~# '\m\C/doc/.*\.txt$'
-            \     && index(rt_dirs, fnamemodify(bufname(v.bufnr), ':p:h:h')) != -1
-            \ }),
-            \ {_,v -> win_execute(v.winid, 'noswapfile set ft=help')})
-    endif
+    call getwininfo()
+        \ ->filter({_,v ->
+        \     fnamemodify(bufname(v.bufnr), ':p') =~# '\m\C/doc/.*\.txt$'
+        \     && index(rt_dirs, fnamemodify(bufname(v.bufnr), ':p:h:h')) != -1
+        \ })
+        \ ->map({_,v -> win_execute(v.winid, 'noswapfile set ft=help')})
 
     " to be totally reliable, this block must come after the previous one
     " Rationale:{{{
@@ -579,7 +567,7 @@ fu s:restore_help_options() abort "{{{2
     "}}}
     let winids = map(getwininfo(), {_,v -> v.winid})
     call filter(winids, {_,v -> getwinvar(v, '&ft') is# 'help'})
-    noa call map(winids, {_,v -> lg#win_execute(v, 'call s:restore_these()')})
+    noa call map(winids, {_,v -> win_execute(v, 'call s:restore_these()')})
 endfu
 
 fu s:restore_these() abort
@@ -975,23 +963,6 @@ fu s:tweak_session_file(file) abort "{{{2
     " session was systematically loaded.
     "}}}
     call insert(body, 'let g:my_session = v:this_session', -3)
-    " Do *not* try to comment the `:badd` lines.{{{
-    "
-    "     call map(body, {_,v -> substitute(v, '\m\C^badd ', '" badd ', '')})
-    "
-    " It could be tempting to do so  in order to fix an issue where window-local
-    " options are not correctly applied when  we re-display a buffer in a second
-    " window.
-    "
-    " However, for some  reason, it would cause  Nvim to not restore  a tab page
-    " when we source a session with `:SLoad`.
-    "
-    " The difference  of behaviors between  Vim and  Nvim probably comes  from a
-    " missing Vim patch in Nvim.
-    "
-    " Anyway, if you  have an issue with window-local options,  set them from an
-    " autocmd listening to `BufWinEnter`.
-    "}}}
     call writefile(body, a:file)
 endfu
 
@@ -1002,10 +973,6 @@ fu s:vim_quit_and_restart() abort "{{{2
     sil! update
     " Source:
     " https://www.reddit.com/r/vim/comments/5lj75f/how_to_reload_vim_completely_using_zsh_exit_to/
-
-    " save the name of the program which should be used when restarting inside a
-    " file; the info will be read by our `nv` zsh function
-    call writefile([has('nvim') ? 'nvr' : 'vim'], $HOME..'/.vim/tmp/restart')
 
     " Send the signal `USR1` to the shell  parent of the current Vim process,
     " so that it restarts a new one when we'll get back at the prompt.
@@ -1067,7 +1034,7 @@ endfu
 
 fu s:win_execute_everywhere(cmd) abort "{{{2
     let winids = map(getwininfo(), {_,v -> v.winid})
-    noa call map(winids, {_,v -> lg#win_execute(v, a:cmd)})
+    noa call map(winids, {_,v -> win_execute(v, a:cmd)})
 endfu
 "}}}1
 " Mapping {{{1
