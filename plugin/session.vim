@@ -508,7 +508,7 @@ fu s:restore_help_options() abort "{{{2
     " The issue can be fixed by adding `options` in `'ssop'`:
     "
     "     $ vim +'h autocmd | tabnext | h vimtex | set ssop+=options | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
-    "                                              ^^^^^^^^^^^^^^^^^
+    "                                              ^---------------^
     "
     " But I don't want to include this  item; when loading a session, I want all
     " options to be reset with sane values.
