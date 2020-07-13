@@ -57,7 +57,7 @@ augroup my_session | au!
     "    state of our session will be performed when VimLeavePre is fired.
     "    So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * call timer_start(0, {-> execute('exe '..s:snr..'track(0)')})
+    au TabClosed * call timer_start(0, { -> execute('exe ' .. function('s:track', [0])->string() .. '()') })
     " We also save whenever we close a tabpage, because we don't want
     " a closed tabpage to be restored while we switch back and forth between
     " 2 sessions with `:SLoad`.
@@ -98,17 +98,17 @@ augroup END
 "
 " If an error occurs in a function, we'll get an error such as:
 "
-"     Error detected while processing function <SNR>42_track:
-"     line   19:
-"     Vim:E492: Not an editor command:             abcd
+"     Error detected while processing function <SNR>42_track:~
+"     line   19:~
+"     Vim:E492: Not an editor command:             abcd~
 "
 " We want our `:STrack` command, and our autocmd, to produce a message similar
 " to a regular Ex command. We don't want the detail of the implementation to leak.
 "
 " By using `exe function()`, we can get an error message such as:
 "
-"     Error detected while processing BufWinEnter Auto commands for "*":
-"     Vim:E492: Not an editor command:             abcd
+"     Error detected while processing BufWinEnter Auto commands for "*":~
+"     Vim:E492: Not an editor command:             abcd~
 "
 " How does it work?
 " When an error may occur, we capture it and convert it into a string:
@@ -116,7 +116,7 @@ augroup END
 "     try
 "         ...
 "     catch
-"         return 'echoerr '.string(v:exception)
+"         return 'echoerr ' .. string(v:exception)
 "     endtry
 "
 " We execute this string in the context of `:STrack`, or of the autocmd.
@@ -757,11 +757,6 @@ fu s:should_pause_session() abort "{{{2
     "      │          │                │
     return !s:bang && s:file is# '' && exists('g:my_session')
 endfu
-
-fu s:snr() "{{{2
-    return matchstr(expand('<sfile>'), '.*\zs<SNR>\d\+_')
-endfu
-let s:snr = get(s:, 'snr', s:snr())
 
 fu session#status() abort "{{{2
 
