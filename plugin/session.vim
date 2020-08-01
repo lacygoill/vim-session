@@ -120,8 +120,8 @@ augroup END
 "     endtry
 "
 " We execute this string in the context of `:STrack`, or of the autocmd.
-" Basically, the try conditional + `exe function()` is a mechanism which
-" allows us to choose the context in which an error may occur.
+" Basically, the try conditional + `exe function()` is a mechanism which lets us
+" choose the context in which an error may occur.
 " Note, however, that in this case, it prevents our `:WTF` command from capturing
 " the error, because it will happen outside of a function.
 "}}}
