@@ -88,7 +88,7 @@ augroup my_session | au!
         \ |     call writefile([g:MY_LAST_SESSION], $HOME .. '/.vim/session/last')
         \ | endif
     au User MyFlags call statusline#hoist('global',
-        \ '%{session#status()}', 5, expand('<sfile>') .. ':' .. expand('<sflnum>'))
+        \ '%{session#status()}', 5, expand('<sfile>:p') .. ':' .. expand('<sflnum>'))
 augroup END
 
 " Commands {{{1
