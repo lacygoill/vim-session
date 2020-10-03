@@ -747,7 +747,7 @@ endfu
 fu s:session_pause() abort "{{{2
     echo 'Pausing session in ' .. fnamemodify(s:last_used_session, ':~:.')
     let g:MY_LAST_SESSION = g:my_session
-    unlet g:my_session
+    unlet! g:my_session
     " don't empty `v:this_session`: we need it if we resume later
     return ''
 endfu
