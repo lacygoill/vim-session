@@ -676,7 +676,7 @@ fu s:session_loaded_in_other_instance(session_file) abort "{{{2
     "     let list = copy([1, 2, 3])->map({_, v -> v + 1})     ✔
     "     let list = tabpagebuflist()->map({_, v -> v + 1})    ✔
     "}}}
-    " Why?{{{
+    "   Why?{{{
     "
     " It gives you the wrong idea that the contents of the variable is a copy
     " of the original list/dictionary.
