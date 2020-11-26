@@ -1044,7 +1044,7 @@ endfu
 "}}}1
 " Mapping {{{1
 
-nno <silent><unique> <space>R :<c-u>call <sid>vim_quit_and_restart()<cr>
+nno <unique> <space>R <cmd>call <sid>vim_quit_and_restart()<cr>
 
 " Options {{{1
 " sessionoptions {{{2
