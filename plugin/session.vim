@@ -664,50 +664,10 @@ fu s:session_loaded_in_other_instance(session_file) abort "{{{2
 
     if buffers ==# [] | return [0, 0] | endif
 
-    " Never assign to a variable, the output of a function which operates in-place on a list:{{{
-    "
-    "     map()  filter()  reverse()  sort()  uniq()
-    "
-    " Unless, the list is the output of another function (including `copy()`):
-    "
-    "     let list = map([1, 2, 3], {_, v -> v + 1})             ✘
-    "
-    "     call map([1, 2, 3], {_, v -> v + 1})                 ✔
-    "     let list = copy([1, 2, 3])->map({_, v -> v + 1})     ✔
-    "     let list = tabpagebuflist()->map({_, v -> v + 1})    ✔
-    "}}}
-    "   Why?{{{
-    "
-    " It gives you the wrong idea that the contents of the variable is a copy
-    " of the original list/dictionary.
-    " Ex:
-    "
-    "     let list1 = [1, 2, 3]
-    "     let list2 = map(list1, {_, v -> v + 1})
-    "
-    " You may think that `list2` is a copy of `list1`, and that changing `list2`
-    " shouldn't affect `list1`.  Wrong.  `list2`  is just another reference
-    " pointing to `list1`.  Proof:
-    "
-    "     call map(list2, {_, v -> v + 2})
-    "     increments all elements of `list2`, but also all elements of `list1`~
-    "
-    " A less confusing way of writing this code would have been:
-    "
-    "     let list1 = [1, 2, 3, 4, 5]
-    "     call map(list1, {_, v -> v + 1})
-    "
-    " Without assigning  the output of `map()`  to a variable, we  don't get the
-    " idea  that  we  have a  copy  of  `list1`.   And  if we  need  one,  we'll
-    " immediately think about `copy()`:
-    "
-    "     let list1 = [1, 2, 3, 4, 5]
-    "     let list2 = copy(list1)->map({_, v -> v + 1})
-    "}}}
     call map(buffers, {_, v -> matchstr(v, '^badd +\d\+ \zs.*')})
     call map(buffers, {_, v -> fnamemodify(v, ':p')})
 
-    let swapfiles = copy(buffers)->map(
+    let swapfiles = mapnew(buffers,
         \ {_, v -> expand('~/.vim/tmp/swap/')
         \       .. substitute(v, '/', '%', 'g')
         \       .. '.swp'})
