@@ -54,7 +54,7 @@ augroup MySession | au!
     "    displayed in a window.
     "
     "    But most of the time, Vim won't quit abnormally, and the last saved
-    "    state of our session will be performed when VimLeavePre is fired.
+    "    state of our session will be performed when `VimLeavePre` is fired.
     "    So, `VimLeavePre` will have the final say most of the time.
 
     au TabClosed * call timer_start(0, { -> execute('exe ' .. expand('<SID>') .. 'track(0)') })
