@@ -536,7 +536,7 @@ def RestoreHelpOptions() #{{{2
             bufname(v.bufnr)->fnamemodify(':p') =~ '\m\C/doc/.*\.txt$'
             && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) != -1
             )
-        ->map((_, v) => win_execute(v.winid, 'noswapfile set ft=help'))
+        ->mapnew((_, v) => win_execute(v.winid, 'noswapfile set ft=help'))
 
     # to be totally reliable, this block must come after the previous one
     # Rationale:{{{
@@ -581,9 +581,9 @@ def RestoreHelpOptions() #{{{2
     # but I  don't want  to do  it, because when  loading a  session I  want all
     # options to be reset with sane values.
     #}}}
-    var winids = getwininfo()->map((_, v) => v.winid)
+    var winids = getwininfo()->mapnew((_, v) => v.winid)
     filter(winids, (_, v) => getwinvar(v, '&ft') == 'help')
-    noa map(winids, (_, v) => win_execute(v, 'RestoreThese()'))
+    noa mapnew(winids, (_, v) => win_execute(v, 'RestoreThese()'))
 enddef
 
 def RestoreThese()
@@ -678,7 +678,7 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
         ->filter((_, v) => v =~ '^badd ')
 
     if buffers == []
-        return [0, 0]
+        return [0, '']
     endif
 
     map(buffers, (_, v) => matchstr(v, '^badd +\d\+ \zs.*'))
@@ -693,7 +693,7 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     #                                └ ignore 'wildignore'
 
     var a_file_is_currently_loaded = swapfiles != []
-    var it_is_not_in_this_session = map(buffers, (_, v) => buflisted(v))->index(1) == -1
+    var it_is_not_in_this_session = mapnew(buffers, (_, v) => buflisted(v))->index(1) == -1
     var file = get(swapfiles, 0, '')
     file = fnamemodify(file, ':t:r')
     file = substitute(file, '%', '/', 'g')
@@ -1015,8 +1015,8 @@ def WhereDoWeSave(): string #{{{2
 enddef
 
 def WinExecuteEverywhere(cmd: string) #{{{2
-    var winids = getwininfo()->map((_, v) => v.winid)
-    noa map(winids, (_, v) => win_execute(v, cmd))
+    var winids = getwininfo()->mapnew((_, v) => v.winid)
+    noa mapnew(winids, (_, v) => win_execute(v, cmd))
 enddef
 #}}}1
 # Mapping {{{1
