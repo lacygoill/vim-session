@@ -260,7 +260,7 @@ def HandleSession(abang: bool, afile: string): string #{{{2
         # The message, and the renaming of the tmux pane, should only occur when
         # we begin the tracking of a new session.
         #}}}
-        var error = Track()
+        var error: string = Track()
         if error == ''
             echo 'Tracking session in ' .. fnamemodify(sfile, ':~:.')
             RenameTmuxWindow(sfile)
@@ -280,7 +280,7 @@ var sfile: string
 var last_used_session: string
 
 def Load(a_session_file: string): string #{{{2
-    var session_file = a_session_file == ''
+    var session_file: string = a_session_file == ''
         ?     get(g:, 'MY_LAST_SESSION', '')
         : a_session_file == '%%'
         ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
@@ -318,7 +318,7 @@ def Load(a_session_file: string): string #{{{2
     endif
 
     PrepareRestoration(session_file)
-    var options_save = SaveOptions()
+    var options_save: dict<any> = SaveOptions()
 
     # Before restoring a session, we need to set the previous one (for `:SLoad %%`).
     # The previous one is:
@@ -419,7 +419,7 @@ def Load(a_session_file: string): string #{{{2
     # In the meantime,  we invoke a function  to be sure that  the local working
     # directory of all windows is `~/.vim`.
     #
-    #     var orig = win_getid()
+    #     var orig: number = win_getid()
     #     tabdo windo cd ~/.vim
     #     win_gotoid(orig)
     #
@@ -442,7 +442,7 @@ def LoadSessionOnVimenter() #{{{2
         return
     endif
 
-    var file = $HOME .. '/.vim/session/last'
+    var file: string = $HOME .. '/.vim/session/last'
     if filereadable(file)
         g:MY_LAST_SESSION = readfile(file)->get(0, '')
     endif
@@ -480,8 +480,8 @@ def PrepareRestoration(file: string) #{{{2
 enddef
 
 def Rename(new_name: string): string #{{{2
-    var src = g:my_session
-    var dst = expand(SESSION_DIR .. '/' .. new_name .. '.vim')
+    var src: string = g:my_session
+    var dst: string = expand(SESSION_DIR .. '/' .. new_name .. '.vim')
 
     if rename(src, dst) != 0
         return 'echoerr ' .. string('Failed to rename ' .. src .. ' to ' .. dst)
@@ -497,10 +497,10 @@ def RenameTmuxWindow(file: string) #{{{2
         return
     endif
 
-    #                                      ┌ remove head (/path/to/)
-    #                                      │ ┌ remove extension (.vim)
-    #                                      │ │
-    var window_title = fnamemodify(file, ':t:r')
+    #                                              ┌ remove head (/path/to/)
+    #                                              │ ┌ remove extension (.vim)
+    #                                              │ │
+    var window_title: string = fnamemodify(file, ':t:r')
     sil system('tmux rename-window -t ' .. $TMUX_PANE .. ' ' .. shellescape(window_title))
 
     augroup MyTmuxWindowTitle | au!
@@ -529,7 +529,7 @@ def RestoreHelpOptions() #{{{2
     # But I don't want to include this  item; when loading a session, I want all
     # options to be reset with sane values.
     #}}}
-    var rt_dirs = split(&rtp, ',')
+    var rt_dirs: list<string> = split(&rtp, ',')
     remove(rt_dirs, index(rt_dirs, $VIMRUNTIME))
     getwininfo()
         ->filter((_, v) =>
@@ -581,7 +581,7 @@ def RestoreHelpOptions() #{{{2
     # but I  don't want  to do  it, because when  loading a  session I  want all
     # options to be reset with sane values.
     #}}}
-    var winids = getwininfo()->mapnew((_, v) => v.winid)
+    var winids: list<number> = getwininfo()->mapnew((_, v) => v.winid)
     filter(winids, (_, v) => getwinvar(v, '&ft') == 'help')
     noa mapnew(winids, (_, v) => win_execute(v, 'RestoreThese()'))
 enddef
@@ -674,7 +674,7 @@ def SaveOptions(): dict<any> #{{{2
 enddef
 
 def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
-    var buffers = readfile(session_file)
+    var buffers: list<string> = readfile(session_file)
         ->filter((_, v) => v =~ '^badd ')
 
     if buffers == []
@@ -684,7 +684,7 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     map(buffers, (_, v) => matchstr(v, '^badd +\d\+ \zs.*'))
     map(buffers, (_, v) => fnamemodify(v, ':p'))
 
-    var swapfiles = mapnew(buffers,
+    var swapfiles: list<string> = mapnew(buffers,
         (_, v) => expand('~/.vim/tmp/swap/')
                .. substitute(v, '/', '%', 'g')
                .. '.swp')
@@ -692,9 +692,12 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     #                                │
     #                                └ ignore 'wildignore'
 
-    var a_file_is_currently_loaded = swapfiles != []
-    var it_is_not_in_this_session = mapnew(buffers, (_, v) => buflisted(v))->index(1) == -1
-    var file = get(swapfiles, 0, '')
+    var a_file_is_currently_loaded: bool = swapfiles != []
+    var it_is_not_in_this_session: bool = mapnew(
+            buffers,
+            (_, v) => buflisted(v)
+        )->index(1) == -1
+    var file: string = get(swapfiles, 0, '')
     file = fnamemodify(file, ':t:r')
     file = substitute(file, '%', '/', 'g')
     return [a_file_is_currently_loaded && it_is_not_in_this_session, file]
@@ -755,14 +758,14 @@ def session#status(): string #{{{2
     # We create the variable `state` whose value, 0, 1 or 2, stands for
     # the state of the environment.
     #
-    #            ┌ a session has been loaded/saved
-    #            │                                ┌ it's tracked by our plugin
-    #            │                                │
-    var state = (v:this_session != '' ? 1 : 0) + (exists('g:my_session') ? 1 : 0)
-    #            │
-    #            └ stores the path to the last file which has been used
-    #              to load/save a session;
-    #              if no session has been saved/loaded, it's empty
+    #                    ┌ a session has been loaded/saved
+    #                    │                                ┌ it's tracked by our plugin
+    #                    │                                │
+    var state: number = (v:this_session != '' ? 1 : 0) + (exists('g:my_session') ? 1 : 0)
+    #                    │
+    #                    └ stores the path to the last file which has been used
+    #                      to load/save a session;
+    #                      if no session has been saved/loaded, it's empty
     #
     # We can use this sum to express the state because there's no ambiguity.
     # Only 1 state can produce 0.
@@ -784,14 +787,14 @@ def session#status(): string #{{{2
 enddef
 
 def SuggestSessions(arglead: string, _l: any, _p: any): string #{{{2
-    #           ┌ `glob()` performs 2 things:
-    #           │
-    #           │     - an expansion
-    #           │     - a filtering:  only the files containing `arglead`
-    #           │                     in their name will be expanded
-    #           │
-    #           │  ... so we don't need to filter the matches
-    var files = glob(SESSION_DIR .. '/*' .. arglead .. '*.vim')
+    # `glob()` performs 2 things:
+    #
+    #    - an expansion
+    #    - a filtering:  only the files containing `arglead`
+    #                    in their name will be expanded
+    #
+    #  ... so we don't need to filter the matches
+    var files: string = glob(SESSION_DIR .. '/*' .. arglead .. '*.vim')
     # simplify the names of the session files:
     # keep only the basename (no path, no extension)
     return substitute(files, '[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
@@ -923,7 +926,7 @@ enddef
 def TweakSessionFile(file: string) #{{{2
     #   ┌ lines of our session file
     #   │
-    var body = readfile(file)
+    var body: list<string> = readfile(file)
 
     # add the Ex command:
     #
@@ -962,7 +965,7 @@ def VimQuitAndRestart() #{{{2
     #
     # It would cause a hit-enter prompt when Vim restarts.
     #}}}
-    var shell_parent_pid = '$(ps -p ' .. getpid() .. ' -o ppid=)'
+    var shell_parent_pid: string = '$(ps -p ' .. getpid() .. ' -o ppid=)'
     sil system('kill -USR1 ' .. shell_parent_pid)
 
     # Note that the shell doesn't seem to process the signal immediately.
@@ -977,7 +980,7 @@ def WhereDoWeSave(): string #{{{2
     if sfile == ''
         if last_used_session == ''
             if !isdirectory(SESSION_DIR)
-                mkdir(SESSION_DIR, 'p', 0700)
+                mkdir(SESSION_DIR, 'p', 0o700)
             endif
             return SESSION_DIR .. '/default.vim'
         else
@@ -1015,7 +1018,7 @@ def WhereDoWeSave(): string #{{{2
 enddef
 
 def WinExecuteEverywhere(cmd: string) #{{{2
-    var winids = getwininfo()->mapnew((_, v) => v.winid)
+    var winids: list<number> = getwininfo()->mapnew((_, v) => v.winid)
     noa mapnew(winids, (_, v) => win_execute(v, cmd))
 enddef
 #}}}1
@@ -1051,7 +1054,7 @@ set ssop=help,tabpages,winsize
 #}}}1
 # Variables {{{1
 
-const SESSION_DIR = $HOME .. '/.vim/session'
+const SESSION_DIR: string = $HOME .. '/.vim/session'
 
 # Documentation {{{1
 #
