@@ -132,31 +132,31 @@ augroup END
 # command to disappear if no error occurs during its execution.
 # For `:SLoad` and `:STrack`, we use `:exe` because there will always be
 # a message to display; even when everything works fine.
-com -bar          -complete=custom,SuggestSessions SClose  exe Close()
-com -bar -nargs=? -complete=custom,SuggestSessions SDelete exe Delete(<q-args>)
-com -bar -nargs=1 -complete=custom,SuggestSessions SRename exe Rename(<q-args>)
+com -bar          -complete=custom,SuggestSessions SClose Close()
+com -bar -nargs=? -complete=custom,SuggestSessions SDelete Delete(<q-args>)
+com -bar -nargs=1 -complete=custom,SuggestSessions SRename Rename(<q-args>)
 
-com -bar       -nargs=? -complete=custom,SuggestSessions SLoad  exe Load(<q-args>)
-com -bar -bang -nargs=? -complete=file                   STrack exe HandleSession(<bang>0, <q-args>)
+com -bar       -nargs=? -complete=custom,SuggestSessions SLoad Load(<q-args>)
+com -bar -bang -nargs=? -complete=file                   STrack HandleSession(<bang>0, <q-args>)
 
 # Functions "{{{1
-def Close(): string #{{{2
+def Close() #{{{2
     if !exists('g:my_session')
-        return ''
+        return
     endif
     sil STrack
     sil tabonly | sil only | enew
     RenameTmuxWindow('vim')
-    return ''
 enddef
 
-def Delete(session: string): string #{{{2
+def Delete(session: string) #{{{2
     var session_to_delete: string
     if session == '%%'
         if exists('g:MY_PENULTIMATE_SESSION')
             session_to_delete = g:MY_PENULTIMATE_SESSION
         else
-            return 'echoerr "No alternate session to delete"'
+            Error('No alternate session to delete')
+            return
         endif
     else
         session_to_delete = session == ''
@@ -182,18 +182,13 @@ def Delete(session: string): string #{{{2
 
     # Delete the session file, and if sth goes wrong report what happened.
     if delete(session_to_delete) == -1
-        # Do *not* use `printf()`:{{{
-        #
-        #     return printf('echoerr "Failed to delete %s"', session_to_delete)
-        #
-        # It would fail when the name of the session file contains a double quote.
-        #}}}
-        return 'echoerr ' .. string('Failed to delete ' .. session_to_delete)
+        Error('Failed to delete ' .. session_to_delete)
+        return
     endif
-    return 'echo ' .. string(session_to_delete .. ' has been deleted')
+    echo string(session_to_delete .. ' has been deleted')
 enddef
 
-def HandleSession(abang: bool, afile: string): string #{{{2
+def HandleSession(abang: bool, afile: string) #{{{2
     bang = abang
     sfile = afile
     # `last_used_session` is used by:{{{
@@ -217,15 +212,15 @@ def HandleSession(abang: bool, afile: string): string #{{{2
         #}}}
         if ShouldPauseSession()
             SessionPause()
-            return ''
+            return
         elseif ShouldDeleteSession()
             SessionDelete()
-            return ''
+            return
         endif
 
         sfile = WhereDoWeSave()
         if sfile == ''
-            return ''
+            return
         endif
 
         # Don't overwrite an existing session file by accident.{{{
@@ -246,13 +241,14 @@ def HandleSession(abang: bool, afile: string): string #{{{2
         # IOW, you'll create a regular session file, which won't be tracked.
         #}}}
         if !bang && afile != '' && filereadable(sfile)
-            return 'mksession ' .. fnameescape(sfile)
+            exe 'mksession ' .. fnameescape(sfile)
+            return
         endif
 
         g:my_session = sfile
         # let `Track()` know that it must save & track the current session
 
-        # Why not simply return `Track()`, and move the `echo` statement in the latter?{{{
+        # Why not simply return after `Track()`, and move the `echo` statement in the latter?{{{
         #
         # `Track()`  is   frequently  called  by  the   autocmd  listening  to
         # `BufWinEnter`; we don't want the message to be echo'ed all the time.
@@ -264,22 +260,22 @@ def HandleSession(abang: bool, afile: string): string #{{{2
         if error == ''
             echo 'Tracking session in ' .. fnamemodify(sfile, ':~:.')
             RenameTmuxWindow(sfile)
-            return ''
+            return
         else
-            return error
+            Error(error)
+            return
         endif
 
     finally
         redrawt
         [bang, sfile, last_used_session] = [false, '', '']
     endtry
-    return ''
 enddef
 var bang: bool
 var sfile: string
 var last_used_session: string
 
-def Load(a_session_file: string): string #{{{2
+def Load(a_session_file: string) #{{{2
     var session_file: string = a_session_file == ''
         ?     get(g:, 'MY_LAST_SESSION', '')
         : a_session_file == '%%'
@@ -291,29 +287,26 @@ def Load(a_session_file: string): string #{{{2
     session_file = resolve(session_file)
 
     if session_file == ''
-        return 'echoerr "No session to load"'
+        Error('No session to load')
+        return
     elseif !filereadable(session_file)
-        # Do *not* use `printf()` like this:{{{
-        #
-        #     return fnamemodify(session_file, ':t')->printf('echoerr "%s doesn''t exist, or it''s not readable"')
-        #}}}
-        return 'echoerr '
-            .. fnamemodify(session_file, ':t')
+        fnamemodify(session_file, ':t')
             ->printf("%s doesn't exist, or it's not readable")
-            ->string()
+            ->Error()
+        return
     elseif exists('g:my_session') && session_file == g:my_session
-        return 'echoerr '
-            .. fnamemodify(session_file, ':t')
+        fnamemodify(session_file, ':t')
             ->printf('%s is already the current session')
-            ->string()
+            ->Error()
+        return
     else
         var loaded_elsewhere: bool
         var file: string
         [loaded_elsewhere, file] = SessionLoadedInOtherInstance(session_file)
         if loaded_elsewhere
-            return 'echoerr '
-                .. printf('%s is already loaded in another Vim instance', file)
-                ->string()
+            printf('%s is already loaded in another Vim instance', file)
+                ->Error()
+            return
         endif
     endif
 
@@ -431,7 +424,6 @@ def Load(a_session_file: string): string #{{{2
     # I'm not sure the above is true.
     # When does Vim write `:lcd` in a session file?
     # It seems to do it even when I don't run `:lcd` manually...
-    return ''
 enddef
 
 def LoadSessionOnVimenter() #{{{2
@@ -479,17 +471,17 @@ def PrepareRestoration(file: string) #{{{2
     # └ if there's only 1 tab, `:tabonly` will display a message
 enddef
 
-def Rename(new_name: string): string #{{{2
+def Rename(new_name: string) #{{{2
     var src: string = g:my_session
     var dst: string = expand(SESSION_DIR .. '/' .. new_name .. '.vim')
 
     if rename(src, dst) != 0
-        return 'echoerr ' .. string('Failed to rename ' .. src .. ' to ' .. dst)
+        Error('Failed to rename ' .. src .. ' to ' .. dst)
+        return
     else
         g:my_session = dst
         RenameTmuxWindow(dst)
     endif
-    return ''
 enddef
 
 def RenameTmuxWindow(file: string) #{{{2
@@ -1020,6 +1012,12 @@ enddef
 def WinExecuteEverywhere(cmd: string) #{{{2
     var winids: list<number> = getwininfo()->mapnew((_, v) => v.winid)
     noa mapnew(winids, (_, v) => win_execute(v, cmd))
+enddef
+
+def Error(msg: string) #{{{2
+    echohl ErrorMsg
+    echom msg
+    echohl NONE
 enddef
 #}}}1
 # Mapping {{{1
