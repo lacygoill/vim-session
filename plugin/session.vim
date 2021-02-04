@@ -181,7 +181,7 @@ def Delete(session: string) #{{{2
     endif
 
     # Delete the session file, and if sth goes wrong report what happened.
-    if delete(session_to_delete) == -1
+    if delete(session_to_delete)
         Error('Failed to delete ' .. session_to_delete)
         return
     endif
@@ -526,7 +526,7 @@ def RestoreHelpOptions() #{{{2
     getwininfo()
         ->filter((_, v) =>
             bufname(v.bufnr)->fnamemodify(':p') =~ '\m\C/doc/.*\.txt$'
-            && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) != -1
+            && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0
             )
         ->mapnew((_, v) => win_execute(v.winid, 'noswapfile set ft=help'))
 
@@ -688,7 +688,7 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     var it_is_not_in_this_session: bool = mapnew(
             buffers,
             (_, v) => buflisted(v)
-        )->index(1) == -1
+        )->index(true) == -1
     var file: string = get(swapfiles, 0, '')
     file = fnamemodify(file, ':t:r')
     file = substitute(file, '%', '/', 'g')
