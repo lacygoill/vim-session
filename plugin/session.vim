@@ -586,7 +586,7 @@ enddef
 def RestoreOptions(dict: dict<any>) #{{{2
     for [op, val] in items(dict)
         var newval: any
-        if type(val) == v:t_string
+        if typename(val) == 'string'
             newval = string(val)
         else
             newval = val
