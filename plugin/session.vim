@@ -689,7 +689,7 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
 
     var a_file_is_currently_loaded: bool = swapfiles != []
     var it_is_not_in_this_session: bool = buffers
-        ->mapnew((_, v: number): bool => buflisted(v))
+        ->mapnew((_, v: string): bool => buflisted(v))
         ->index(true) == -1
     var file: string = get(swapfiles, 0, '')
     file = fnamemodify(file, ':t:r')
