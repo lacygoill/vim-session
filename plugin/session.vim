@@ -524,11 +524,11 @@ def RestoreHelpOptions() #{{{2
     var rt_dirs: list<string> = split(&rtp, ',')
     remove(rt_dirs, index(rt_dirs, $VIMRUNTIME))
     getwininfo()
-        ->filter((_, v) =>
+        ->filter((_, v: dict<any>): bool =>
             bufname(v.bufnr)->fnamemodify(':p') =~ '\m\C/doc/.*\.txt$'
             && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0
             )
-        ->mapnew((_, v) => win_execute(v.winid, 'noswapfile set ft=help'))
+        ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noswapfile set ft=help'))
 
     # to be totally reliable, this block must come after the previous one
     # Rationale:{{{
@@ -573,9 +573,10 @@ def RestoreHelpOptions() #{{{2
     # but I  don't want  to do  it, because when  loading a  session I  want all
     # options to be reset with sane values.
     #}}}
-    var winids: list<number> = getwininfo()->mapnew((_, v) => v.winid)
-    filter(winids, (_, v) => getwinvar(v, '&ft') == 'help')
-    noa mapnew(winids, (_, v) => win_execute(v, 'RestoreThese()'))
+    var winids: list<number> = getwininfo()
+        ->mapnew((_, v: dict<any>) => v.winid)
+        ->filter((_, v: number): bool => getwinvar(v, '&ft') == 'help')
+    noa mapnew(winids, (_, v: number) => win_execute(v, 'RestoreThese()'))
 enddef
 
 def RestoreThese()
@@ -667,28 +668,29 @@ enddef
 
 def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     var buffers: list<string> = readfile(session_file)
-        ->filter((_, v) => v =~ '^badd ')
+        ->filter((_, v: string): bool => v =~ '^badd ')
 
     if buffers == []
         return [0, '']
     endif
 
-    map(buffers, (_, v) => matchstr(v, '^badd +\d\+ \zs.*'))
-    map(buffers, (_, v) => fnamemodify(v, ':p'))
+    buffers
+        ->map((_, v: string): string => matchstr(v, '^badd +\d\+ \zs.*'))
+        ->map((_, v: string): string => fnamemodify(v, ':p'))
 
-    var swapfiles: list<string> = mapnew(buffers,
-        (_, v) => expand('~/.vim/tmp/swap/')
-               .. substitute(v, '/', '%', 'g')
-               .. '.swp')
-    map(swapfiles, (_, v) => glob(v, true))->filter((_, v) => v != '')
-    #                                │
-    #                                └ ignore 'wildignore'
+    var swapfiles: list<string> = buffers
+        ->mapnew((_, v: string): string => expand('~/.vim/tmp/swap/')
+           .. substitute(v, '/', '%', 'g')
+           .. '.swp')
+        ->map((_, v: string): string => glob(v, true))
+        #                                       │
+        #                                       └ ignore 'wildignore'
+        ->filter((_, v: string): bool => v != '')
 
     var a_file_is_currently_loaded: bool = swapfiles != []
-    var it_is_not_in_this_session: bool = mapnew(
-            buffers,
-            (_, v) => buflisted(v)
-        )->index(true) == -1
+    var it_is_not_in_this_session: bool = buffers
+        ->mapnew((_, v: number): bool => buflisted(v))
+        ->index(true) == -1
     var file: string = get(swapfiles, 0, '')
     file = fnamemodify(file, ':t:r')
     file = substitute(file, '%', '/', 'g')
@@ -1010,8 +1012,9 @@ def WhereDoWeSave(): string #{{{2
 enddef
 
 def WinExecuteEverywhere(cmd: string) #{{{2
-    var winids: list<number> = getwininfo()->mapnew((_, v) => v.winid)
-    noa mapnew(winids, (_, v) => win_execute(v, cmd))
+    var winids: list<number> = getwininfo()
+        ->mapnew((_, v: dict<any>): number => v.winid)
+    noa mapnew(winids, (_, v: number) => win_execute(v, cmd))
 enddef
 
 def Error(msg: string) #{{{2
