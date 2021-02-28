@@ -188,9 +188,9 @@ def Delete(session: string) #{{{2
     echo string(session_to_delete .. ' has been deleted')
 enddef
 
-def HandleSession(abang: bool, afile: string) #{{{2
-    bang = abang
-    sfile = afile
+def HandleSession(arg_bang: bool, arg_file: string) #{{{2
+    bang = arg_bang
+    sfile = arg_file
     # `last_used_session` is used by:{{{
     #
     #    - SessionPause()
@@ -240,7 +240,7 @@ def HandleSession(abang: bool, afile: string) #{{{2
         #
         # IOW, you'll create a regular session file, which won't be tracked.
         #}}}
-        if !bang && afile != '' && filereadable(sfile)
+        if !bang && arg_file != '' && filereadable(sfile)
             exe 'mksession ' .. fnameescape(sfile)
             return
         endif
@@ -275,14 +275,14 @@ var bang: bool
 var sfile: string
 var last_used_session: string
 
-def Load(a_session_file: string) #{{{2
-    var session_file: string = a_session_file == ''
+def Load(arg_session_file: string) #{{{2
+    var session_file: string = arg_session_file == ''
         ?     get(g:, 'MY_LAST_SESSION', '')
-        : a_session_file == '%%'
+        : arg_session_file == '%%'
         ?     get(g:, 'MY_PENULTIMATE_SESSION', '')
-        : a_session_file =~ '/'
-        ?     fnamemodify(a_session_file, ':p')
-        :     SESSION_DIR .. '/' .. a_session_file .. '.vim'
+        : arg_session_file =~ '/'
+        ?     fnamemodify(arg_session_file, ':p')
+        :     SESSION_DIR .. '/' .. arg_session_file .. '.vim'
 
     session_file = resolve(session_file)
 
