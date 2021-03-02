@@ -525,9 +525,8 @@ def RestoreHelpOptions() #{{{2
     remove(rt_dirs, index(rt_dirs, $VIMRUNTIME))
     getwininfo()
         ->filter((_, v: dict<any>): bool =>
-            bufname(v.bufnr)->fnamemodify(':p') =~ '\m\C/doc/.*\.txt$'
-            && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0
-            )
+                   bufname(v.bufnr)->fnamemodify(':p') =~ '\C/doc/.*\.txt$'
+                && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0)
         ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noswapfile set ft=help'))
 
     # to be totally reliable, this block must come after the previous one
@@ -573,10 +572,10 @@ def RestoreHelpOptions() #{{{2
     # but I  don't want  to do  it, because when  loading a  session I  want all
     # options to be reset with sane values.
     #}}}
-    var winids: list<number> = getwininfo()
+    getwininfo()
         ->mapnew((_, v: dict<any>) => v.winid)
         ->filter((_, v: number): bool => getwinvar(v, '&ft') == 'help')
-    noa mapnew(winids, (_, v: number) => win_execute(v, 'RestoreThese()'))
+        ->mapnew((_, v: number) => win_execute(v, 'noa RestoreThese()'))
 enddef
 
 def RestoreThese()
@@ -675,16 +674,17 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     endif
 
     buffers
-        ->map((_, v: string): string => matchstr(v, '^badd +\d\+ \zs.*'))
-        ->map((_, v: string): string => fnamemodify(v, ':p'))
+        ->map((_, v: string): string =>
+                matchstr(v, '^badd +\d\+ \zs.*')->fnamemodify(':p'))
 
     var swapfiles: list<string> = buffers
-        ->mapnew((_, v: string): string => expand('~/.vim/tmp/swap/')
-           .. substitute(v, '/', '%', 'g')
-           .. '.swp')
-        ->map((_, v: string): string => glob(v, true))
-        #                                       │
-        #                                       └ ignore 'wildignore'
+        ->mapnew((_, v: string): string =>
+                    expand('~/.vim/tmp/swap/')
+                 .. v->substitute('/', '%', 'g')
+                 .. '.swp'
+        )->map((_, v: string): string => glob(v, true))
+        #                                        │
+        #                                        └ ignore 'wildignore'
         ->filter((_, v: string): bool => v != '')
 
     var a_file_is_currently_loaded: bool = swapfiles != []
@@ -693,7 +693,7 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
         ->index(true) == -1
     var file: string = get(swapfiles, 0, '')
     file = fnamemodify(file, ':t:r')
-    file = substitute(file, '%', '/', 'g')
+            ->substitute('%', '/', 'g')
     return [a_file_is_currently_loaded && it_is_not_in_this_session, file]
 enddef
 
@@ -725,19 +725,19 @@ def SessionPause() #{{{2
 enddef
 
 def ShouldDeleteSession(): bool #{{{2
-    #      ┌ :STrack! ∅
-    #      ├─────────────────┐
-    return bang && sfile == '' && filereadable(last_used_session)
-    #                             │
-    #                             └ a session file was used and its file is readable
+    # `:STrack! ∅`
+    return bang && sfile == ''
+        # a session file was used and its file is readable
+        && filereadable(last_used_session)
 enddef
 
 def ShouldPauseSession(): bool #{{{2
-    #      ┌ no bang
-    #      │        ┌ :STrack ∅
-    #      │        │              ┌ the current session is being tracked
-    #      │        │              │
-    return !bang && sfile == '' && exists('g:my_session')
+    # no bang
+    return !bang
+        # `:STrack ∅`
+        && sfile == ''
+        # the current session is being tracked
+        && exists('g:my_session')
 enddef
 
 def session#status(): string #{{{2
@@ -791,7 +791,7 @@ def SuggestSessions(arglead: string, _l: any, _p: any): string #{{{2
     var files: string = glob(SESSION_DIR .. '/*' .. arglead .. '*.vim')
     # simplify the names of the session files:
     # keep only the basename (no path, no extension)
-    return substitute(files, '[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
+    return files->substitute('[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
     #                         ├───┘
     #                         └ in a regex used to describe text in a BUFFER
     #                           `.` stands for any character EXCEPT an end-of-line
@@ -970,7 +970,7 @@ def VimQuitAndRestart() #{{{2
 enddef
 
 def WhereDoWeSave(): string #{{{2
-    # :STrack ∅
+    # `:STrack ∅`
     if sfile == ''
         if last_used_session == ''
             if !isdirectory(SESSION_DIR)
@@ -1012,9 +1012,8 @@ def WhereDoWeSave(): string #{{{2
 enddef
 
 def WinExecuteEverywhere(cmd: string) #{{{2
-    var winids: list<number> = getwininfo()
-        ->mapnew((_, v: dict<any>): number => v.winid)
-    noa mapnew(winids, (_, v: number) => win_execute(v, cmd))
+    getwininfo()
+        ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noa ' .. cmd))
 enddef
 
 def Error(msg: string) #{{{2
