@@ -781,23 +781,17 @@ def session#status(): string #{{{2
 enddef
 
 def SuggestSessions(arglead: string, _l: any, _p: any): string #{{{2
-    # `glob()` performs 2 things:
+    return SESSION_DIR
+        ->readdir((n: string): bool => n =~ '\.vim$', {sort: 'none'})
+        ->join("\n")
+        # remove files extension
+        ->substitute('[^\n]*\zs\.vim', '', 'g')
+    #                 ├───┘
+    #                 └ in a regex used to describe text in a BUFFER
+    #                   `.` stands for any character EXCEPT an end-of-line
     #
-    #    - an expansion
-    #    - a filtering:  only the files containing `arglead`
-    #                    in their name will be expanded
-    #
-    #  ... so we don't need to filter the matches
-    var files: string = glob(SESSION_DIR .. '/*' .. arglead .. '*.vim')
-    # simplify the names of the session files:
-    # keep only the basename (no path, no extension)
-    return files->substitute('[^\n]*\.vim/session/\([^\n]*\)\.vim', '\1', 'g')
-    #                         ├───┘
-    #                         └ in a regex used to describe text in a BUFFER
-    #                           `.` stands for any character EXCEPT an end-of-line
-    #
-    #                           in a regex used to describe text in a STRING
-    #                           `.` stands for any character INCLUDING an end-of-line
+    #                   in a regex used to describe text in a STRING
+    #                   `.` stands for any character INCLUDING an end-of-line
 enddef
 
 def Track(on_vimleavepre = false): string #{{{2
