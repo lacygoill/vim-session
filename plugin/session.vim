@@ -782,7 +782,7 @@ enddef
 
 def SuggestSessions(arglead: string, _l: any, _p: any): string #{{{2
     return SESSION_DIR
-        ->readdir((n: string): bool => n =~ '\.vim$', {sort: 'none'})
+        ->readdir((n: string): bool => n =~ '\.vim$')
         ->join("\n")
         # remove files extension
         ->substitute('[^\n]*\zs\.vim', '', 'g')
