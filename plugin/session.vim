@@ -58,7 +58,7 @@ augroup MySession | au!
     #    state of our session will be performed when `VimLeavePre` is fired.
     #    So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * timer_start(0, () => execute('exe Track()') )
+    au TabClosed * timer_start(0, (_) => execute('exe Track()') )
     # We also save whenever we close a tabpage, because we don't want
     # a closed tabpage to be restored while we switch back and forth between
     # 2 sessions with `:SLoad`.
@@ -88,7 +88,7 @@ augroup MySession | au!
         | if get(g:, 'MY_LAST_SESSION', '') != '' && v:servername != ''
         |     writefile([g:MY_LAST_SESSION], $HOME .. '/.vim/session/last')
         | endif
-    au User MyFlags call statusline#hoist('global',
+    au User MyFlags statusline#hoist('global',
         \ '%{session#status()}', 5, expand('<sfile>:p') .. ':' .. expand('<sflnum>'))
 augroup END
 
@@ -662,7 +662,7 @@ def SaveOptions(): dict<any> #{{{2
         winminheight: &winminheight,
         winminwidth: &winminwidth,
         winwidth: &winwidth,
-        }
+    }
 enddef
 
 def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
@@ -780,7 +780,7 @@ def session#status(): string #{{{2
     return ['', '[S]', '[∞]'][state]
 enddef
 
-def SuggestSessions(arglead: string, _l: any, _p: any): string #{{{2
+def SuggestSessions(arglead: string, _, _): string #{{{2
     return SESSION_DIR
         ->readdir((n: string): bool => n =~ '\.vim$')
         ->join("\n")
