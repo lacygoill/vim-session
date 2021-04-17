@@ -653,6 +653,24 @@ def SaveOptions(): dict<any> #{{{2
     # That's  not what  we want;  when  we restart,  we want  all custom  config
     # (options/mappings) to have been forgotten.
     #}}}
+    # TODO: In the future you might be able to stop saving/restoring some of these options:{{{
+    #
+    #    - 'splitbelow'
+    #    - 'splitright'
+    #    - 'winminheight'
+    #    - 'winminwidth'
+    #
+    # Vim should correctly restore them after this patch:
+    # https://github.com/vim/vim/releases/tag/v8.2.2776
+    #
+    # However, we still save/restore them manually here, because we might source
+    # session scripts which have been written by older Vim versions.
+    #
+    # ---
+    #
+    # And what about the other options, like `'shortmess'`?
+    # Why didn't 8.2.2776 correctly restore them too?
+    #}}}
     return {
         shortmess: &shortmess,
         splitbelow: &splitbelow,
