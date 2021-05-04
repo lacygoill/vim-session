@@ -322,11 +322,11 @@ def Load(arg_session_file: string) #{{{2
     endif
 
     TweakSessionFile(session_file)
-    #  ┌ Sometimes,  when the  session contains  one of  our folded  notes, an
-    #  │ error is raised.  It seems some commands, like `zo`, fail to manipulate
-    #  │ a fold, because it doesn't exist.  Maybe the buffer is not folded yet.
-    #  │
-    sil! exe 'so ' .. fnameescape(session_file)
+    #       ┌ Sometimes,  when the  session contains  one of  our folded  notes, an
+    #       │ error is raised.  It seems some commands, like `zo`, fail to manipulate
+    #       │ a fold, because it doesn't exist.  Maybe the buffer is not folded yet.
+    #       │
+    exe 'sil! so ' .. fnameescape(session_file)
     # During the sourcing, other issues may occur. {{{
     #
     # Every custom function that we invoke in any autocmd (vimrc, other plugin)
@@ -427,10 +427,36 @@ def Load(arg_session_file: string) #{{{2
 enddef
 
 def LoadSessionOnVimenter() #{{{2
-    # Don't source the last session when we run `$ vim`; it's not always what we
-    # want; source it only  when we run `$ nv`.  Note that  the default value of
-    # `v:servername` is `VIM`.
-    if v:servername != 'VIM'
+    # Don't source the last session when we run `$ vim`; only when we run `$ nv`.
+    # What's this `VIMSERVER` variable?{{{
+    #
+    # We set it only when we run `$ nv`.
+    # Check out our zshrc:
+    #
+    #     VIMSERVER=yes vim -w /tmp/.vimkeys --servername "$server" "$@"
+    #     ^-----------^
+    #}}}
+    # Do *not* inspect `v:servername` instead.{{{
+    #
+    # For example, you might be tempted to write this (and get rid of `$VIMSERVER`):
+    #
+    #     if v:servername != 'VIM'
+    #         return
+    #     endif
+    #
+    # That wouldn't work if Vim was not able to connect to the X server.
+    # Because in  that case, `v:servername`  is empty, *even* if  you've started
+    # Vim with the `--servername` argument.
+    #
+    # That can happen  if `&term` matches the pattern supplied  to the `exclude`
+    # item in the `'clipboard'` option.  For  example, you might use the pattern
+    # `.*`  to always  disallow a  connection to  the X  server, and  make Vim's
+    # startup time a little faster:
+    #
+    #     set cb=autoselect,exclude:.*
+    #                               ^^
+    #}}}
+    if $VIMSERVER == ''
         return
     endif
 
@@ -574,7 +600,7 @@ def RestoreHelpOptions() #{{{2
     #}}}
     getwininfo()
         ->mapnew((_, v: dict<any>) => v.winid)
-        ->filter((_, v: number): bool => getwinvar(v, '&ft') == 'help')
+        ->filter((_, v: number): bool => getwinvar(v, '&filetype') == 'help')
         ->mapnew((_, v: number) => win_execute(v, 'noa RestoreThese()'))
 enddef
 
