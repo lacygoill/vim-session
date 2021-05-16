@@ -181,7 +181,7 @@ def Delete(session: string) #{{{2
     endif
 
     # Delete the session file, and if sth goes wrong report what happened.
-    if delete(session_to_delete)
+    if delete(session_to_delete) == -1
         Error('Failed to delete ' .. session_to_delete)
         return
     endif
