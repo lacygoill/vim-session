@@ -99,9 +99,9 @@ augroup END
 #
 # If an error occurs in a function, we'll get an error such as:
 #
-#     Error detected while processing function <SNR>42_Track:~
-#     line   19:~
-#     Vim:E492: Not an editor command:             abcd~
+#     Error detected while processing function <SNR>42_Track:˜
+#     line   19:˜
+#     Vim:E492: Not an editor command:             abcd˜
 #
 # We want our  `:STrack` command, and our autocmd, to  produce a message similar
 # to a regular  Ex command.  We don't  want the detail of  the implementation to
@@ -109,8 +109,8 @@ augroup END
 #
 # By using `exe function()`, we can get an error message such as:
 #
-#     Error detected while processing BufWinEnter Auto commands for "*":~
-#     Vim:E492: Not an editor command:             abcd~
+#     Error detected while processing BufWinEnter Auto commands for "*":˜
+#     Vim:E492: Not an editor command:             abcd˜
 #
 # How does it work?
 # When an error may occur, we capture it and convert it into a string:
@@ -575,14 +575,14 @@ def RestoreHelpOptions() #{{{2
     #     /usr_07.txt
     #     SPC R
     #     :wincmd }
-    #     E426: tag not found: usr_07~
+    #     E426: tag not found: usr_07˜
     #
     # And if `'bt'` is not correct, there may still be some problematic tags:
     #
     #     :h :bufdo /'eventignore'
     #     SPC R
     #     :wincmd }
-    #     E426: tag not found: eventignore~
+    #     E426: tag not found: eventignore˜
     #
     # ---
     #
@@ -668,9 +668,9 @@ def SaveOptions(): dict<any> #{{{2
     # Therefore at the end of a session file, Vim writes `set winheight={current value}`:
     #
     #     $ vim -Nu NONE +'set winheight=123' +'mksession /tmp/.s.vim' +'qa!' && grep -n 'winheight' /tmp/.s.vim
-    #     6:set winheight=123~
-    #     23:set winheight=1~
-    #     153:set winheight=123 winwidth=20 shortmess=filnxtToOS~
+    #     6:set winheight=123˜
+    #     23:set winheight=1˜
+    #     153:set winheight=123 winwidth=20 shortmess=filnxtToOS˜
     #
     # But  this implies  that when  you load  a session,  these options  may not
     # be  preserved;  in  particular,  when  you restart  Vim,  and  the  latter
@@ -1034,8 +1034,8 @@ def WhereDoWeSave(): string #{{{2
         #     :e ~/wiki/par/par.md
         #     :SClose
         #     :STrack par
-        #     the session is saved in ~/wiki/par/default.vim~
-        #     it should be in ~/.vim/session/par.vim~
+        #     the session is saved in ~/wiki/par/default.vim˜
+        #     it should be in ~/.vim/session/par.vim˜
         #
         # I think it's an argument in favor of not supporting the feature `:STrack dir/`.
         #}}}
