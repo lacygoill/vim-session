@@ -139,7 +139,7 @@ com -bar -nargs=1 -complete=custom,SuggestSessions SRename Rename(<q-args>)
 com -bar       -nargs=? -complete=custom,SuggestSessions SLoad Load(<q-args>)
 com -bar -bang -nargs=? -complete=file                   STrack HandleSession(<bang>0, <q-args>)
 
-# Functions "{{{1
+# Functions {{{1
 def Close() #{{{2
     if !exists('g:my_session')
         return
@@ -344,7 +344,7 @@ def Load(arg_session_file: string) #{{{2
     # But, this would cause other issues:
     #
     #    - the filetype plugins would be loaded too late for markdown buffers
-    #      → 'fdm', 'fde', 'fdt' would be set too late
+    #      → 'foldmethod', 'foldexpr', 'foldtext' would be set too late
     #      → in the session file, commands handling folds (e.g. `zo`) would
     #        raise `E490: No fold found`
     #
@@ -406,7 +406,7 @@ def Load(arg_session_file: string) #{{{2
     # Vim creates a session file, it adds the command `:lcd some_dir`.
     # Because of this, the next time we load this session, all the windows
     # which are created after the window A inherit the same local directory.
-    # They shouldn't.  We have excluded `'curdir'` from `'ssop'`.
+    # They shouldn't.  We have excluded `'curdir'` from `'sessionoptions'`.
     #
     # Open an issue on Vim's repo.
     # In the meantime,  we invoke a function  to be sure that  the local working
@@ -453,8 +453,8 @@ def LoadSessionOnVimenter() #{{{2
     # `.*`  to always  disallow a  connection to  the X  server, and  make Vim's
     # startup time a little faster:
     #
-    #     set cb=autoselect,exclude:.*
-    #                               ^^
+    #     &clipboard = 'autoselect,exclude:.*'
+    #                                      ^^
     #}}}
     if $VIMSERVER == ''
         return
@@ -539,21 +539,21 @@ def RestoreHelpOptions() #{{{2
     #     $ vim +'h autocmd | tabnext | h vimtex | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
     #     $ vim -S /tmp/.s.vim
     #
-    # The issue can be fixed by adding `options` in `'ssop'`:
+    # The issue can be fixed by adding `options` in `'sessionoptions'`:
     #
-    #     $ vim +'h autocmd | tabnext | h vimtex | set ssop+=options | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
-    #                                              ^---------------^
+    #     $ vim +'h autocmd | tabnext | h vimtex | set sessionoptions+=options | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
+    #                                              ^-------------------------^
     #
     # But I don't want to include this  item; when loading a session, I want all
     # options to be reset with sane values.
     #}}}
-    var rt_dirs: list<string> = split(&rtp, ',')
-    remove(rt_dirs, index(rt_dirs, $VIMRUNTIME))
+    var runtime_dirs: list<string> = split(&runtimepath, ',')
+    remove(runtime_dirs, index(runtime_dirs, $VIMRUNTIME))
     getwininfo()
         ->filter((_, v: dict<any>): bool =>
                    bufname(v.bufnr)->fnamemodify(':p') =~ '\C/doc/.*\.txt$'
-                && index(rt_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0)
-        ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noswapfile set ft=help'))
+                && index(runtime_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0)
+        ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noswapfile set filetype=help'))
 
     # to be totally reliable, this block must come after the previous one
     # Rationale:{{{
@@ -566,8 +566,8 @@ def RestoreHelpOptions() #{{{2
     #    - `'iskeyword'`
     #    - `'modifiable'`
     #
-    # In particular, if `'isk'` is not correct, you may not be able to jump to a
-    # tag (or preview it).
+    # In particular,  if `'iskeyword'` is  not correct, you  may not be  able to
+    # jump to a tag (or preview it).
     #
     # MWE:
     #
@@ -594,9 +594,9 @@ def RestoreHelpOptions() #{{{2
     # Alternatively,  you could  also  close  the help  window,  and re-run  the
     # relevant `:h topic` command.
     #
-    # Including the  `localoptions` item in  `'ssop'` would also fix  the issue,
-    # but I  don't want  to do  it, because when  loading a  session I  want all
-    # options to be reset with sane values.
+    # Including the `localoptions` item in `'sessionoptions'` would also fix the
+    # issue, but I  don't want to do  it, because when loading a  session I want
+    # all options to be reset with sane values.
     #}}}
     getwininfo()
         ->mapnew((_, v: dict<any>) => v.winid)
@@ -605,8 +605,11 @@ def RestoreHelpOptions() #{{{2
 enddef
 
 def RestoreThese()
-    &l:isk = '!-~,^*,^|,^",192-255,-'
-    setl bt=help nobl nofen noma
+    &l:iskeyword = '!-~,^*,^|,^",192-255,-'
+    &l:buftype = 'help'
+    &l:buflisted = false
+    &l:foldenable = false
+    &l:modifiable = false
 enddef
 
 def RestoreOptions(dict: dict<any>) #{{{2
@@ -658,7 +661,7 @@ def SaveOptions(): dict<any> #{{{2
     #    - `'winminwidth'`
     #    - `'winwidth'`
     #}}}
-    # I don't include the `options` item in `'ssop'`.  So, why do I need to save/restore these options?{{{
+    # I don't include the `options` item in `'sessionoptions'`.  So, why do I need to save/restore these options?{{{
     #
     # Because Vim  *needs* to  temporarily change the  values of  these specific
     # options while restoring a session.
@@ -925,7 +928,7 @@ def Track(on_vimleavepre = false): string #{{{2
             #     copen
             #
             # Basically, `:mksession` (temporarily?)  changes the current buffer
-            # when 'ft' is set to 'qf', which is now forbidden.
+            # when 'filetype' is set to 'qf', which is now forbidden.
             # For more info, search `E788` on Vim's bug tracker.
             #
             # Here, we simply ignore the error.
@@ -943,7 +946,7 @@ def Track(on_vimleavepre = false): string #{{{2
             #     Vim(mksession):E11: Invalid in command-line window; <CR> executes, CTRL-C quits: mksession! /home/jean/.vim/session/C.vim
             #}}}
         catch
-            # If sth  goes wrong now  (ex: session  file not writable),  it will
+            # If sth goes  wrong now (e.g.: session file not  writable), it will
             # probably go wrong next time.
             # We don't want to go on trying to save a session.
             unlet! g:my_session
@@ -1088,7 +1091,7 @@ nno <unique> <space>R <cmd>call <sid>VimQuitAndRestart()<cr>
 #
 #      folding options are not affected by this item (for those you need the 'folds' item)
 #}}}
-set ssop=help,tabpages,winsize
+&sessionoptions = 'help,tabpages,winsize'
 #}}}1
 # Variables {{{1
 
