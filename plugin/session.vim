@@ -26,7 +26,7 @@ var loaded = true
 
 var read_stdin: bool
 augroup MySession | au!
-    au StdInReadPost * read_stdin = true
+    au StdinReadPost * read_stdin = true
 
     #               ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
     #               │
@@ -898,9 +898,9 @@ def Track(on_vimleavepre = false): string #{{{2
                 #     SPC R
                 #}}}
                 # remove the global arglist
-                argg | :%argd
+                argg | :% argd
                 # remove all the local arglists
-                WinExecuteEverywhere('argl | :%argd')
+                WinExecuteEverywhere('argl | :% argd')
             endif
 
             #             ┌ overwrite any existing file
