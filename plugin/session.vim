@@ -605,6 +605,14 @@ def RestoreHelpOptions() #{{{2
 enddef
 
 def RestoreThese()
+    # This is necessary to avoid that our statusline displays a spurious `[isk]` flag.{{{
+    #
+    # I tried to fix the issue in `vim-statusline` itself, but failed.
+    # Too many corner cases, I guess.
+    # So, now, we try to fix it here, which seems more reliable.
+    #}}}
+    unlet! b:orig_iskeyword
+
     &l:iskeyword = '!-~,^*,^|,^",192-255,-'
     &l:buftype = 'help'
     &l:buflisted = false
