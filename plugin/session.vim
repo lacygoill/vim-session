@@ -1061,8 +1061,17 @@ def WhereDoWeSave(): string #{{{2
 enddef
 
 def WinExecuteEverywhere(cmd: string) #{{{2
-    getwininfo()
-        ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noa ' .. cmd))
+    try
+        getwininfo()
+            ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noa ' .. cmd))
+    # ERROR: Vim(argglobal):E565: Not allowed to change text or change window:{{{
+    #
+    # Last time it happened, it was during a crash.
+    # Maybe catching the error will prevent similar crashes in the future...
+    #}}}
+    catch /^Vim\%((\a\+)\)\=:E565:/
+        Error(v:exception)
+    endtry
 enddef
 
 def Error(msg: string) #{{{2
