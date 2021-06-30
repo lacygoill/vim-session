@@ -25,12 +25,12 @@ var loaded = true
 # Autocmds {{{1
 
 var read_stdin: bool
-augroup MySession | au!
-    au StdinReadPost * read_stdin = true
+augroup MySession | autocmd!
+    autocmd StdinReadPost * read_stdin = true
 
-    #               ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
-    #               │
-    au VimEnter * ++nested LoadSessionOnVimenter()
+    #                    ┌ necessary to source ftplugins (trigger autocmds listening to BufReadPost?)
+    #                    │
+    autocmd VimEnter * ++nested LoadSessionOnVimenter()
 
     # Purpose of the next 3 autocmds: {{{
     #
@@ -40,25 +40,25 @@ augroup MySession | au!
     #    2. update the session file frequently, and as long as `g:my_session` exists
     #       IOW, track the session
     #}}}
-    #                ┌ if sth goes wrong, the function returns the string:
-    #                │      'echoerr '.string(v:exception)
-    #                │
-    #                │ we need to execute this string
-    #                │
-    au BufWinEnter * exe Track()
-    #  │
-    #  └ We don't want the session to be saved only when we quit Vim,
-    #    because Vim could exit abnormally.
+    #                     ┌ if sth goes wrong, the function returns the string:
+    #                     │      'echoerr '.string(v:exception)
+    #                     │
+    #                     │ we need to execute this string
+    #                     │
+    autocmd BufWinEnter * execute Track()
+    #       │
+    #       └ We don't want the session to be saved only when we quit Vim,
+    #         because Vim could exit abnormally.
     #
-    #    Contrary to `BufEnter`, `BufWinEnter` is NOT fired for `:split`
-    #    (without arguments), nor for `:split file`, `file` being already
-    #    displayed in a window.
+    #         Contrary to `BufEnter`, `BufWinEnter` is NOT fired for `:split`
+    #         (without arguments), nor for `:split file`, `file` being already
+    #         displayed in a window.
     #
-    #    But most of the time, Vim won't quit abnormally, and the last saved
-    #    state of our session will be performed when `VimLeavePre` is fired.
-    #    So, `VimLeavePre` will have the final say most of the time.
+    #         But most of the time, Vim won't quit abnormally, and the last saved
+    #         state of our session will be performed when `VimLeavePre` is fired.
+    #         So, `VimLeavePre` will have the final say most of the time.
 
-    au TabClosed * timer_start(0, (_) => execute('exe Track()') )
+    autocmd TabClosed * timer_start(0, (_) => execute('execute Track()') )
     # We also save whenever we close a tabpage, because we don't want
     # a closed tabpage to be restored while we switch back and forth between
     # 2 sessions with `:SLoad`.
@@ -84,18 +84,18 @@ augroup MySession | au!
     # If we don't need uppercase names,  write them in lowercase, and remove the
     # next `v:servername != ''` condition.
     #}}}
-    au VimLeavePre * exe Track(true)
+    autocmd VimLeavePre * execute Track(true)
         | if get(g:, 'MY_LAST_SESSION', '') != '' && v:servername != ''
         |     writefile([g:MY_LAST_SESSION], $HOME .. '/.vim/session/last')
         | endif
-    au User MyFlags statusline#hoist('global',
+    autocmd User MyFlags statusline#hoist('global',
         \ '%{session#status()}', 5, expand('<sfile>:p') .. ':' .. expand('<sflnum>'))
 augroup END
 
 # Commands {{{1
 
-# Why `exe HandleSession()` {{{
-# and why `exe Track()`?
+# Why `execute HandleSession()` {{{
+# and why `execute Track()`?
 #
 # If an error occurs in a function, we'll get an error such as:
 #
@@ -107,7 +107,7 @@ augroup END
 # to a regular  Ex command.  We don't  want the detail of  the implementation to
 # leak.
 #
-# By using `exe function()`, we can get an error message such as:
+# By using `execute function()`, we can get an error message such as:
 #
 #     Error detected while processing BufWinEnter Auto commands for "*":˜
 #     Vim:E492: Not an editor command:             abcd˜
@@ -122,7 +122,7 @@ augroup END
 #     endtry
 #
 # We execute this string in the context of `:STrack`, or of the autocmd.
-# Basically, the try conditional + `exe function()` is a mechanism which lets us
+# Basically, the try conditional + `execute function()` is a mechanism which lets us
 # choose the context in which an error may occur.
 # Note, however, that in this case, it prevents our `:WTF` command from capturing
 # the error, because it will happen outside of a function.
@@ -130,22 +130,22 @@ augroup END
 
 # We use `:echoerr` for `:SDelete`, `:SRename`, `:SClose`, because we want the
 # command to disappear if no error occurs during its execution.
-# For `:SLoad` and `:STrack`, we use `:exe` because there will always be
+# For `:SLoad` and `:STrack`, we use `:execute` because there will always be
 # a message to display; even when everything works fine.
-com -bar          -complete=custom,SuggestSessions SClose Close()
-com -bar -nargs=? -complete=custom,SuggestSessions SDelete Delete(<q-args>)
-com -bar -nargs=1 -complete=custom,SuggestSessions SRename Rename(<q-args>)
+command -bar          -complete=custom,SuggestSessions SClose Close()
+command -bar -nargs=? -complete=custom,SuggestSessions SDelete Delete(<q-args>)
+command -bar -nargs=1 -complete=custom,SuggestSessions SRename Rename(<q-args>)
 
-com -bar       -nargs=? -complete=custom,SuggestSessions SLoad Load(<q-args>)
-com -bar -bang -nargs=? -complete=file                   STrack HandleSession(<bang>0, <q-args>)
+command -bar       -nargs=? -complete=custom,SuggestSessions SLoad Load(<q-args>)
+command -bar -bang -nargs=? -complete=file                   STrack HandleSession(<bang>0, <q-args>)
 
 # Functions {{{1
 def Close() #{{{2
     if !exists('g:my_session')
         return
     endif
-    sil STrack
-    sil tabonly | sil only | enew
+    silent STrack
+    silent tabonly | silent only | enew
     RenameTmuxWindow('vim')
 enddef
 
@@ -241,7 +241,7 @@ def HandleSession(arg_bang: bool, arg_file: string) #{{{2
         # IOW, you'll create a regular session file, which won't be tracked.
         #}}}
         if !bang && arg_file != '' && filereadable(sfile)
-            exe 'mksession ' .. fnameescape(sfile)
+            execute 'mksession ' .. fnameescape(sfile)
             return
         endif
 
@@ -267,7 +267,7 @@ def HandleSession(arg_bang: bool, arg_file: string) #{{{2
         endif
 
     finally
-        redrawt
+        redrawtabline
         [bang, sfile, last_used_session] = [false, '', '']
     endtry
 enddef
@@ -322,11 +322,12 @@ def Load(arg_session_file: string) #{{{2
     endif
 
     TweakSessionFile(session_file)
-    #       ┌ Sometimes,  when the  session contains  one of  our folded  notes, an
-    #       │ error is raised.  It seems some commands, like `zo`, fail to manipulate
-    #       │ a fold, because it doesn't exist.  Maybe the buffer is not folded yet.
-    #       │
-    exe 'sil! so ' .. fnameescape(session_file)
+    # `silent!` to suppress a possible error when the session contains one of our folded notes.{{{
+    #
+    # It seems some  commands, like `zo`, fail to manipulate  a fold, because it
+    # doesn't exist.  Maybe the buffer is not folded yet.
+    #}}}
+    execute 'silent! source ' .. fnameescape(session_file)
     # During the sourcing, other issues may occur. {{{
     #
     # Every custom function that we invoke in any autocmd (vimrc, other plugin)
@@ -336,7 +337,7 @@ def Load(arg_session_file: string) #{{{2
     # disabled,  *then*  emit  `BufReadPost`  in all  buffers,  to  execute  the
     # autocmds associated to filetype detection:
     #
-    #     noa so ~/.vim/session/default.vim
+    #     noautocmd source ~/.vim/session/default.vim
     #     doautoall <nomodeline> filetypedetect BufReadPost
     #                            │
     #                            └ $VIMRUNTIME/filetype.vim
@@ -371,7 +372,7 @@ def Load(arg_session_file: string) #{{{2
     RestoreOptions(options_save)
     RestoreHelpOptions()
     RenameTmuxWindow(session_file)
-    WinExecuteEverywhere('norm! zv')
+    WinExecuteEverywhere('normal! zv')
 
     # use the global arglist in all windows
     # Why is it needed?{{{
@@ -390,7 +391,7 @@ def Load(arg_session_file: string) #{{{2
     # By default, Vim uses the global arglist, which should be the rule.
     # Using a local arglist should be the exception.
     #}}}
-    WinExecuteEverywhere('argg')
+    WinExecuteEverywhere('argglobal')
 
     # reset height of window{{{
     #
@@ -399,7 +400,7 @@ def Load(arg_session_file: string) #{{{2
     # scratch buffer; such a buffer is  not restored, which causes the height of
     # the windows in the current tab page to be wrong.
     #}}}
-    do <nomodeline> WinEnter
+    doautocmd <nomodeline> WinEnter
 
     # FIXME:
     # When we change the local directory of a window A, the next time
@@ -480,21 +481,24 @@ def LoadSessionOnVimenter() #{{{2
     endif
 
     if SafeToLoadSession()
-        exe 'SLoad ' .. g:MY_LAST_SESSION
+        execute 'SLoad ' .. g:MY_LAST_SESSION
     endif
 enddef
 
 def PrepareRestoration(file: string) #{{{2
     # Update current session file, before loading another one.
-    exe Track()
+    execute Track()
 
+    # Let's make sure there's only 1 tabpage and 1 window.{{{
+    #
     # If the current session contains several tabpages, they won't be closed.
     # For some  reason, `:mksession` writes  the command `:only` in  the session
     # file,  but not  `:tabonly`.   So,  we make  sure  every tabpage/window  is
     # closed, before restoring a session.
-    sil tabonly | sil only
-    # │
-    # └ if there's only 1 tab, `:tabonly` will display a message
+    #}}}
+    # `:tabonly` displays a message if there's only 1 tab; `:silent` suppresses it.
+    silent tabonly
+    silent only
 enddef
 
 def Rename(new_name: string) #{{{2
@@ -519,12 +523,12 @@ def RenameTmuxWindow(file: string) #{{{2
     #                                              │ ┌ remove extension (.vim)
     #                                              │ │
     var window_title: string = fnamemodify(file, ':t:r')
-    sil system('tmux rename-window -t ' .. $TMUX_PANE .. ' ' .. shellescape(window_title))
+    silent system('tmux rename-window -t ' .. $TMUX_PANE .. ' ' .. shellescape(window_title))
 
-    augroup MyTmuxWindowTitle | au!
+    augroup MyTmuxWindowTitle | autocmd!
         # We've just renamed the tmux window, so tmux automatically disabled the
         # 'automatic-rename' option.  We'll re-enable it when we quit Vim.
-        au VimLeavePre * sil system('tmux set-option -w -t ' .. $TMUX_PANE .. ' automatic-rename on')
+        autocmd VimLeavePre * silent system('tmux set-option -w -t ' .. $TMUX_PANE .. ' automatic-rename on')
     augroup END
 enddef
 
@@ -536,13 +540,13 @@ def RestoreHelpOptions() #{{{2
     #
     # MWE:
     #
-    #     $ vim +'h autocmd | tabnext | h vimtex | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
+    #     $ vim +'help autocmd | tabnext | help vimtex | mksession! /tmp/.s.vim | quitall!' -p ~/.shrc ~/.bashrc
     #     $ vim -S /tmp/.s.vim
     #
     # The issue can be fixed by adding `options` in `'sessionoptions'`:
     #
-    #     $ vim +'h autocmd | tabnext | h vimtex | set sessionoptions+=options | mksession! /tmp/.s.vim | qa!' -p ~/.shrc ~/.bashrc
-    #                                              ^-------------------------^
+    #     $ vim +'help autocmd | tabnext | help vimtex | set sessionoptions+=options | mksession! /tmp/.s.vim | quitall!' -p ~/.shrc ~/.bashrc
+    #                                                    ^-------------------------^
     #
     # But I don't want to include this  item; when loading a session, I want all
     # options to be reset with sane values.
@@ -571,7 +575,7 @@ def RestoreHelpOptions() #{{{2
     #
     # MWE:
     #
-    #     :h windows.txt
+    #     :help windows.txt
     #     /usr_07.txt
     #     SPC R
     #     :wincmd }
@@ -579,20 +583,20 @@ def RestoreHelpOptions() #{{{2
     #
     # And if `'bt'` is not correct, there may still be some problematic tags:
     #
-    #     :h :bufdo /'eventignore'
+    #     :help :bufdo /'eventignore'
     #     SPC R
     #     :wincmd }
     #     E426: tag not found: eventignore˜
     #
     # ---
     #
-    # I found those options by comparing the output of `:setl` in a working help
-    # buffer, and in a broken one.
+    # I found those options by comparing  the output of `:setlocal` in a working
+    # help buffer, and in a broken one.
     #
     # ---
     #
     # Alternatively,  you could  also  close  the help  window,  and re-run  the
-    # relevant `:h topic` command.
+    # relevant `:help topic` command.
     #
     # Including the `localoptions` item in `'sessionoptions'` would also fix the
     # issue, but I  don't want to do  it, because when loading a  session I want
@@ -601,19 +605,19 @@ def RestoreHelpOptions() #{{{2
     getwininfo()
         ->mapnew((_, v: dict<any>) => v.winid)
         ->filter((_, v: number): bool => getwinvar(v, '&filetype') == 'help')
-        ->mapnew((_, v: number) => win_execute(v, 'noa RestoreThese()'))
+        ->mapnew((_, v: number) => win_execute(v, 'noautocmd RestoreThese()'))
 enddef
 
 def RestoreThese()
+    &l:iskeyword = '!-~,^*,^|,^",192-255,-'
     # This is necessary to avoid that our statusline displays a spurious `[isk]` flag.{{{
     #
     # I tried to fix the issue in `vim-statusline` itself, but failed.
     # Too many corner cases, I guess.
     # So, now, we try to fix it here, which seems more reliable.
     #}}}
-    unlet! b:orig_iskeyword
+    b:orig_iskeyword = &l:iskeyword
 
-    &l:iskeyword = '!-~,^*,^|,^",192-255,-'
     &l:buftype = 'help'
     &l:buflisted = false
     &l:foldenable = false
@@ -628,7 +632,7 @@ def RestoreOptions(dict: dict<any>) #{{{2
         else
             newval = val
         endif
-        exe '&' .. op .. ' = ' .. newval
+        execute '&' .. op .. ' = ' .. newval
     endfor
 enddef
 
@@ -678,7 +682,7 @@ def SaveOptions(): dict<any> #{{{2
     # the ones which were used at the time the session file was created.
     # Therefore at the end of a session file, Vim writes `set winheight={current value}`:
     #
-    #     $ vim -Nu NONE +'set winheight=123' +'mksession /tmp/.s.vim' +'qa!' && grep -n 'winheight' /tmp/.s.vim
+    #     $ vim -Nu NONE +'set winheight=123' +'mksession /tmp/.s.vim' +'quitall!' && grep -n 'winheight' /tmp/.s.vim
     #     6:set winheight=123˜
     #     23:set winheight=1˜
     #     153:set winheight=123 winwidth=20 shortmess=filnxtToOS˜
@@ -861,11 +865,11 @@ def Track(on_vimleavepre = false): string #{{{2
     if exists('g:SessionLoad')
         # `g:SessionLoad` exists temporarily while a session is loading.{{{
         #
-        # See: :h SessionLoad-variable
+        # See: `:help SessionLoad-variable`
         #
         # Suppose we source a session file:
         #
-        #     :so file
+        #     :source file
         #
         # During the  restoration process, `BufWinEnter` would  be fired several
         # times.   Every time,  the current  function  would try  to update  the
@@ -895,7 +899,7 @@ def Track(on_vimleavepre = false): string #{{{2
                 #     :args $VIMRUNTIME/**/*.vim
                 #     SPC R
                 #}}}
-                # Why not simply `%argd`?{{{
+                # Why not simply `:% argdelete`?{{{
                 #
                 # It would fail  to remove a long local arglist  associated to a
                 # window other than the currently focused one.
@@ -906,21 +910,21 @@ def Track(on_vimleavepre = false): string #{{{2
                 #     SPC R
                 #}}}
                 # remove the global arglist
-                argg | :% argd
+                argglobal | :% argdelete
                 # remove all the local arglists
-                WinExecuteEverywhere('argl | :% argd')
+                WinExecuteEverywhere('arglocal | :% argdelete')
             endif
 
-            #             ┌ overwrite any existing file
-            #             │
-            exe 'mksession! ' .. fnameescape(g:my_session)
+            #                 ┌ overwrite any existing file
+            #                 │
+            execute 'mksession! ' .. fnameescape(g:my_session)
 
             # Let Vim know that this session is the last used.
             # Useful when we do this:
             #
             #     :STrack        stop the tracking of the current session
             #     :STrack new    create and track a new one
-            #     :q             quit Vim
+            #     :quit          quit Vim
             #     $ vim          restart Vim
             g:MY_LAST_SESSION = g:my_session
 
@@ -932,7 +936,7 @@ def Track(on_vimleavepre = false): string #{{{2
             # For us, it happens when we open the qf window (`:copen`).
             # Minimal vimrc to reproduce:
             #
-            #     au BufWinEnter * mksession! /tmp/session.vim
+            #     autocmd BufWinEnter * mksession! /tmp/session.vim
             #     copen
             #
             # Basically, `:mksession` (temporarily?)  changes the current buffer
@@ -959,7 +963,7 @@ def Track(on_vimleavepre = false): string #{{{2
             # We don't want to go on trying to save a session.
             unlet! g:my_session
             # remove `[∞]` from the tab line
-            redrawt
+            redrawtabline
             return 'echoerr ' .. string(v:exception)
         endtry
     endif
@@ -996,9 +1000,8 @@ def VimQuitAndRestart() #{{{2
         echo 'not available in GUI'
         return
     endif
-    #  ┌ there could be an error if we're in a terminal buffer (E382)
-    #  │
-    sil! update
+    # `:silent!` to suppress `:help E382` (might happen when we're in a terminal buffer)
+    silent! update
     # Source:
     # https://www.reddit.com/r/vim/comments/5lj75f/how_to_reload_vim_completely_using_zsh_exit_to/
 
@@ -1009,13 +1012,13 @@ def VimQuitAndRestart() #{{{2
     # It would cause a hit-enter prompt when Vim restarts.
     #}}}
     var shell_parent_pid: string = '$(ps -p ' .. getpid() .. ' -o ppid=)'
-    sil system('kill -USR1 ' .. shell_parent_pid)
+    silent system('kill -USR1 ' .. shell_parent_pid)
 
     # Note that the shell doesn't seem to process the signal immediately.
     # It doesn't restart a new Vim process, until we've quit the current one.
     # That's probably because  the shell stays in the background  as long as Vim
     # is running.
-    qa!
+    quitall!
 enddef
 
 def WhereDoWeSave(): string #{{{2
@@ -1042,7 +1045,7 @@ def WhereDoWeSave(): string #{{{2
         #     return fnamemodify(sfile, ':p') .. 'default.vim'
         #
         # Because:
-        #     :e ~/wiki/par/par.md
+        #     :edit ~/wiki/par/par.md
         #     :SClose
         #     :STrack par
         #     the session is saved in ~/wiki/par/default.vim˜
@@ -1063,7 +1066,7 @@ enddef
 def WinExecuteEverywhere(cmd: string) #{{{2
     try
         getwininfo()
-            ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noa ' .. cmd))
+            ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noautocmd ' .. cmd))
     # ERROR: Vim(argglobal):E565: Not allowed to change text or change window:{{{
     #
     # Last time it happened, it was during a crash.
@@ -1076,13 +1079,13 @@ enddef
 
 def Error(msg: string) #{{{2
     echohl ErrorMsg
-    echom msg
+    echomsg msg
     echohl NONE
 enddef
 #}}}1
 # Mapping {{{1
 
-nno <unique> <space>R <cmd>call <sid>VimQuitAndRestart()<cr>
+nnoremap <unique> <Space>R <Cmd>call <SID>VimQuitAndRestart()<CR>
 
 # Options {{{1
 # sessionoptions {{{2
