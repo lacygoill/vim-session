@@ -553,11 +553,15 @@ def RestoreHelpOptions() #{{{2
     #}}}
     var runtime_dirs: list<string> = split(&runtimepath, ',')
     remove(runtime_dirs, index(runtime_dirs, $VIMRUNTIME))
-    getwininfo()
+
+    var wininfos: list<dict<any>> = getwininfo()
         ->filter((_, v: dict<any>): bool =>
                    bufname(v.bufnr)->fnamemodify(':p') =~ '\C/doc/.*\.txt$'
                 && index(runtime_dirs, bufname(v.bufnr)->fnamemodify(':p:h:h')) >= 0)
-        ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noswapfile set filetype=help'))
+
+    for d: dict<any> in wininfos
+        win_execute(d.winid, 'noswapfile set filetype=help')
+    endfor
 
     # to be totally reliable, this block must come after the previous one
     # Rationale:{{{
@@ -602,10 +606,12 @@ def RestoreHelpOptions() #{{{2
     # issue, but I  don't want to do  it, because when loading a  session I want
     # all options to be reset with sane values.
     #}}}
-    getwininfo()
+    var winids: list<number> = getwininfo()
         ->mapnew((_, v: dict<any>) => v.winid)
         ->filter((_, v: number): bool => getwinvar(v, '&filetype') == 'help')
-        ->mapnew((_, v: number) => win_execute(v, 'noautocmd RestoreThese()'))
+    for winid: number in winids
+        win_execute(winid, 'noautocmd RestoreThese()')
+    endfor
 enddef
 
 def RestoreThese()
@@ -733,17 +739,18 @@ def SessionLoadedInOtherInstance(session_file: string): list<any> #{{{2
     endif
 
     buffers
-        ->map((_, v: string): string =>
+        ->map((_, v: string) =>
                 matchstr(v, '^badd +\d\+ \zs.*')->fnamemodify(':p'))
 
     var swapfiles: list<string> = buffers
-        ->mapnew((_, v: string): string =>
+        ->copy()
+        ->map((_, v: string) =>
                     expand('~/.vim/tmp/swap/')
                  .. v->substitute('/', '%', 'g')
                  .. '.swp'
-        )->map((_, v: string): string => glob(v, true))
-        #                                        │
-        #                                        └ ignore 'wildignore'
+        )->map((_, v: string) => glob(v, true))
+        #                                │
+        #                                └ ignore 'wildignore'
         ->filter((_, v: string): bool => v != '')
 
     var a_file_is_currently_loaded: bool = swapfiles != []
@@ -906,7 +913,7 @@ def Track(on_vimleavepre = false): string #{{{2
                 #
                 # MWE:
                 #     :args $VIMRUNTIME/**/*.vim
-                #     " focus another window
+                #     # focus another window
                 #     SPC R
                 #}}}
                 # remove the global arglist
@@ -1065,8 +1072,9 @@ enddef
 
 def WinExecuteEverywhere(cmd: string) #{{{2
     try
-        getwininfo()
-            ->mapnew((_, v: dict<any>) => win_execute(v.winid, 'noautocmd ' .. cmd))
+        for d: dict<any> in getwininfo()
+            win_execute(d.winid, 'noautocmd ' .. cmd)
+        endfor
     # ERROR: Vim(argglobal):E565: Not allowed to change text or change window:{{{
     #
     # Last time it happened, it was during a crash.
