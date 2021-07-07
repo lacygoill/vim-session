@@ -631,7 +631,7 @@ def RestoreThese()
 enddef
 
 def RestoreOptions(dict: dict<any>) #{{{2
-    for [op, val] in items(dict)
+    for [op: string, val: any] in items(dict)
         var newval: any
         if typename(val) == 'string'
             newval = string(val)
