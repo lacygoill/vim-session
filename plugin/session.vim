@@ -132,7 +132,7 @@ augroup END
 # command to disappear if no error occurs during its execution.
 # For `:SLoad` and `:STrack`, we use `:execute` because there will always be
 # a message to display; even when everything works fine.
-command -bar          -complete=custom,SuggestSessions SClose Close()
+command -bar                                           SClose Close()
 command -bar -nargs=? -complete=custom,SuggestSessions SDelete Delete(<q-args>)
 command -bar -nargs=1 -complete=custom,SuggestSessions SRename Rename(<q-args>)
 
