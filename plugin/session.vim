@@ -540,13 +540,13 @@ def RestoreHelpOptions() #{{{2
     #
     # MWE:
     #
-    #     $ vim +'help autocmd | tabnext | help vimtex | mksession! /tmp/.s.vim | quitall!' -p ~/.shrc ~/.bashrc
+    #     $ vim +'help autocmd | tabnext | help fugitive | mksession! /tmp/.s.vim | quitall!' -p ~/.shrc ~/.bashrc
     #     $ vim -S /tmp/.s.vim
     #
     # The issue can be fixed by adding `options` in `'sessionoptions'`:
     #
-    #     $ vim +'help autocmd | tabnext | help vimtex | set sessionoptions+=options | mksession! /tmp/.s.vim | quitall!' -p ~/.shrc ~/.bashrc
-    #                                                    ^-------------------------^
+    #     $ vim +'help autocmd | tabnext | help fugitive | set sessionoptions+=options | mksession! /tmp/.s.vim | quitall!' -p ~/.shrc ~/.bashrc
+    #                                                      ^-------------------------^
     #
     # But I don't want to include this  item; when loading a session, I want all
     # options to be reset with sane values.
